@@ -175,6 +175,7 @@ export default function App() {
         action: 'modified',
         patch: {
           title: occurrence.title,
+          subtasks: occurrence.subtasks ?? [],
           categoryId: occurrence.categoryId,
           date: occurrence.date,
           startMinute,
@@ -635,7 +636,7 @@ export function DayView({ date, settings, categories, occurrences, onDateChange,
                   '--event-bg': rgba(category?.color ?? '#8D94A0', 0.2),
                   textAlign: settings.textAlign
                 } as React.CSSProperties}
-                aria-label={`${segment.title}, ${formatMinute(segment.startMinute)}부터 ${formatMinute(segment.startMinute + segment.durationMinute)}까지`}
+                aria-label={`${segment.title}${segment.subtasks?.length ? `, 소항목 ${segment.subtasks.join(', ')}` : ''}, ${formatMinute(segment.startMinute)}부터 ${formatMinute(segment.startMinute + segment.durationMinute)}까지`}
                 onPointerDown={event => startBlockDrag(event, segment, 'move')}
                 onPointerMove={moveBlockDrag}
                 onPointerUp={endBlockDrag}
@@ -647,7 +648,11 @@ export function DayView({ date, settings, categories, occurrences, onDateChange,
                 }}
               >
                 {piece.isFirst && <span className="resize-handle start" aria-hidden="true" onPointerDown={event => startBlockDrag(event, segment, 'resize-start')} />}
-                {piece.isFirst && <><strong>{segment.title}</strong>{segment.laneCount === 1 && (displayEnd - displayStart) >= 20 && <span>{formatMinute(displayStart)}–{formatMinute(displayEnd)}</span>}</>}
+                {piece.isFirst && <>
+                  <strong>{segment.title}</strong>
+                  {!!segment.subtasks?.length && <span className="event-subtasks">{segment.subtasks.map(item => `• ${item}`).join('  ')}</span>}
+                  {segment.laneCount === 1 && (displayEnd - displayStart) >= 20 && <span className="event-time">{formatMinute(displayStart)}–{formatMinute(displayEnd)}</span>}
+                </>}
                 {piece.isLast && <span className="resize-handle end" aria-hidden="true" onPointerDown={event => startBlockDrag(event, segment, 'resize-end')} />}
               </button>
             ));
@@ -761,6 +766,7 @@ function EventEditor({ state, snapshot, onClose, onSaved }: {
   const occurrence = state.occurrence;
   const series = occurrence ? snapshot.schedules.find(item => item.id === occurrence.seriesId) : null;
   const [title, setTitle] = useState(occurrence?.title ?? '');
+  const [subtasksText, setSubtasksText] = useState((occurrence?.subtasks ?? []).join('\n'));
   const [date, setDate] = useState(state.draftDate);
   const [start, setStart] = useState(timeFromMinute(state.draftStart));
   const [end, setEnd] = useState(timeFromMinute((state.draftStart + state.draftDuration) % 1440));
@@ -778,11 +784,12 @@ function EventEditor({ state, snapshot, onClose, onSaved }: {
     const durationMinute = endMinute <= startMinute ? endMinute + 1440 - startMinute : endMinute - startMinute;
     if (durationMinute < 5) { setError('일정은 최소 5분 이상이어야 해요.'); return; }
     const reminderMinute = reminder === '' ? null : Number(reminder);
+    const subtasks = subtasksText.split(/\r?\n/).map(item => item.trim().replace(/^[•-]\s*/, '')).filter(Boolean);
     const now = Date.now();
 
     if (!series) {
       const newSeries: ScheduleSeries = {
-        id: id('schedule'), title: title.trim(), categoryId, startDate: date, startMinute, durationMinute,
+        id: id('schedule'), title: title.trim(), subtasks, categoryId, startDate: date, startMinute, durationMinute,
         recurrence: { kind: repeat, weekdays: repeat === 'weekly' ? weekdays : [], endDate: null },
         reminderMinute, createdAt: now, updatedAt: now
       };
@@ -794,7 +801,7 @@ function EventEditor({ state, snapshot, onClose, onSaved }: {
 
     if (scope === 'series') {
       await db.schedules.update(series.id, {
-        title: title.trim(), categoryId, startDate: date, startMinute, durationMinute,
+        title: title.trim(), subtasks, categoryId, startDate: date, startMinute, durationMinute,
         recurrence: { kind: repeat, weekdays: repeat === 'weekly' ? weekdays : [], endDate: null },
         reminderMinute, updatedAt: now
       });
@@ -805,7 +812,7 @@ function EventEditor({ state, snapshot, onClose, onSaved }: {
         seriesId: series.id,
         occurrenceDate: occurrence.originalDate,
         action: 'modified',
-        patch: { title: title.trim(), categoryId, date, startMinute, durationMinute, reminderMinute }
+        patch: { title: title.trim(), subtasks, categoryId, date, startMinute, durationMinute, reminderMinute }
       };
       await db.overrides.put(override);
       await onSaved('이번 일정만 업데이트했어요.');
@@ -848,6 +855,14 @@ function EventEditor({ state, snapshot, onClose, onSaved }: {
           <label><span>날짜</span><input type="date" value={date} onInput={event => setDate(event.currentTarget.value)} /></label>
           <label><span>시작</span><input type="time" step="300" value={start} onInput={event => setStart(event.currentTarget.value)} /></label>
           <label><span>종료</span><input type="time" step="300" value={end} onInput={event => setEnd(event.currentTarget.value)} /></label>
+        </div>
+
+        <div className="form-card">
+          <label className="subtasks-field">
+            <span>소항목</span>
+            <textarea value={subtasksText} onInput={event => setSubtasksText(event.currentTarget.value)} placeholder={'비닐봉지\n입욕제'} rows={3} />
+          </label>
+          <p className="field-hint">한 줄에 하나씩 입력하면 일정 블록과 위젯에 불렛으로 표시됩니다.</p>
         </div>
 
         <div className="form-card">

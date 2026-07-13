@@ -16,6 +16,7 @@ export async function syncDayBirdWidgets(snapshot: DayBirdSnapshot): Promise<voi
   const events = expandOccurrences(snapshot.schedules, snapshot.overrides, today, end).map(occurrence => ({
     date: occurrence.date,
     title: occurrence.title,
+    subtasks: occurrence.subtasks ?? [],
     startMinute: occurrence.startMinute,
     durationMinute: occurrence.durationMinute,
     color: categoryColors.get(occurrence.categoryId) ?? '#8D94A0'

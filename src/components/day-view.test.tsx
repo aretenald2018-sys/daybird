@@ -45,6 +45,17 @@ function setMatrixBounds(grid: Element) {
 }
 
 describe('DayView touch gestures', () => {
+  it('shows schedule subtasks as bullets inside the block', () => {
+    const occurrence: ScheduleOccurrence = {
+      key: 'shopping', seriesId: 'shopping', originalDate: '2026-07-13', date: '2026-07-13',
+      title: '다이소 쇼핑', subtasks: ['비닐봉지', '입욕제'], categoryId: 'work',
+      startMinute: 18 * 60, durationMinute: 30, reminderMinute: null
+    };
+    const { container } = render(<DayView {...baseProps} occurrences={[occurrence]} onAdd={vi.fn()} />);
+
+    expect(container.querySelector('.event-subtasks')?.textContent).toBe('• 비닐봉지  • 입욕제');
+  });
+
   it('stacks overlapping plans in thinner lanes without making the hour row taller', () => {
     const occurrences: ScheduleOccurrence[] = [
       { key: 'first', seriesId: 'first', originalDate: '2026-07-13', date: '2026-07-13', title: '14시 블록', categoryId: 'work', startMinute: 14 * 60, durationMinute: 60, reminderMinute: null },

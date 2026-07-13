@@ -23,10 +23,10 @@
 * { box-sizing: border-box; }
 html { background: var(--canvas); overscroll-behavior: none; }
 body { margin: 0; min-width: 320px; min-height: 100vh; background: var(--canvas); font-size: calc(16px * var(--font-scale)); }
-button, input, select { font: inherit; }
+button, input, select, textarea { font: inherit; }
 button, a { -webkit-tap-highlight-color: transparent; }
 button { color: inherit; }
-button:focus-visible, a:focus-visible, input:focus-visible, select:focus-visible { outline: 3px solid rgba(0, 122, 255, .35); outline-offset: 2px; }
+button:focus-visible, a:focus-visible, input:focus-visible, select:focus-visible, textarea:focus-visible { outline: 3px solid rgba(0, 122, 255, .35); outline-offset: 2px; }
 svg { width: 22px; height: 22px; stroke-width: 1.9; }
 
 .app-shell { min-height: 100vh; padding-bottom: calc(74px + env(safe-area-inset-bottom)); }
@@ -72,6 +72,8 @@ svg { width: 22px; height: 22px; stroke-width: 1.9; }
 .event-block strong, .event-block span { display: block; overflow: hidden; white-space: nowrap; text-overflow: ellipsis; }
 .event-block strong { font-size: calc(12px * var(--font-scale)); font-weight: 700; line-height: 1.1; }
 .event-block span { margin-top: 1px; color: rgba(28,28,30,.62); font-size: 9px; font-variant-numeric: tabular-nums; }
+.event-block .event-subtasks { color: rgba(28,28,30,.78); font-size: calc(9px * var(--font-scale)); font-variant-numeric: normal; font-weight: 600; }
+.event-block .event-time { color: rgba(28,28,30,.55); }
 .event-block .resize-handle { position: absolute; z-index: 2; top: 20%; width: 8px; height: 60%; margin: 0; border-radius: 4px; background: transparent; }
 .event-block .resize-handle.start { left: 0; }
 .event-block .resize-handle.end { right: 0; }
@@ -128,6 +130,10 @@ svg { width: 22px; height: 22px; stroke-width: 1.9; }
 .form-card .title-field { min-height: 64px; }
 .form-card .title-field .category-dot { min-width: 13px; width: 13px; height: 13px; border-radius: 50%; }
 .form-card .title-field input { color: var(--ink); text-align: left; font-size: 18px; font-weight: 650; }
+.form-card .subtasks-field { align-items: flex-start; padding-top: 13px; padding-bottom: 10px; }
+.form-card .subtasks-field textarea { min-width: 0; min-height: 78px; flex: 1; resize: vertical; border: 0; outline: 0; background: transparent; color: var(--ink); line-height: 1.55; }
+.form-card .subtasks-field textarea::placeholder { color: #b0b0b6; }
+.form-card .field-hint { margin: 0; padding: 10px 15px 12px 99px; color: var(--secondary); font-size: 11px; line-height: 1.45; }
 .weekday-picker { display: grid; grid-template-columns: repeat(7, 1fr); gap: 5px; padding: 12px; border-bottom: 1px solid var(--line); }
 .weekday-picker button { aspect-ratio: 1; min-width: 34px; border: 0; border-radius: 50%; background: var(--canvas); color: var(--secondary); cursor: pointer; }
 .weekday-picker button.active { color: #fff; background: var(--blue); }

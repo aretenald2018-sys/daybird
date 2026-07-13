@@ -19,6 +19,7 @@ export interface RecurrenceRule {
 export interface ScheduleSeries {
   id: string;
   title: string;
+  subtasks?: string[];
   categoryId: string;
   startDate: string;
   startMinute: number;
@@ -31,6 +32,7 @@ export interface ScheduleSeries {
 
 export interface OccurrencePatch {
   title?: string;
+  subtasks?: string[];
   categoryId?: string;
   date?: string;
   startMinute?: number;
@@ -52,6 +54,7 @@ export interface ScheduleOccurrence {
   originalDate: string;
   date: string;
   title: string;
+  subtasks?: string[];
   categoryId: string;
   startMinute: number;
   durationMinute: number;
@@ -181,6 +184,7 @@ export function expandOccurrences(
         originalDate: cursor,
         date: patch.date ?? cursor,
         title: patch.title ?? series.title,
+        subtasks: patch.subtasks ?? series.subtasks ?? [],
         categoryId: patch.categoryId ?? series.categoryId,
         startMinute: patch.startMinute ?? series.startMinute,
         durationMinute: patch.durationMinute ?? series.durationMinute,
@@ -201,6 +205,7 @@ export function expandOccurrences(
       originalDate: override.occurrenceDate,
       date: override.patch.date,
       title: override.patch.title ?? series.title,
+      subtasks: override.patch.subtasks ?? series.subtasks ?? [],
       categoryId: override.patch.categoryId ?? series.categoryId,
       startMinute: override.patch.startMinute ?? series.startMinute,
       durationMinute: override.patch.durationMinute ?? series.durationMinute,

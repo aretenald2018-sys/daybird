@@ -113,7 +113,8 @@ final class DayBirdWidgetStore {
             if (!visible) continue;
             JSONObject event = events.get(index);
             views.setTextViewText(times[index], formatMinute(event.optInt("startMinute")));
-            views.setTextViewText(titles[index], event.optString("title", "일정"));
+            views.setTextViewText(titles[index], eventLabel(event));
+            views.setInt(titles[index], "setMaxLines", 2);
             views.setInt(colors[index], "setBackgroundColor", parseColor(event.optString("color", "#8D94A0")));
         }
     }
@@ -157,6 +158,20 @@ final class DayBirdWidgetStore {
 
     private static String formatMinute(int minute) {
         return String.format(Locale.US, "%02d:%02d", Math.max(0, minute) / 60, Math.max(0, minute) % 60);
+    }
+
+    private static String eventLabel(JSONObject event) {
+        StringBuilder label = new StringBuilder(event.optString("title", "일정"));
+        JSONArray subtasks = event.optJSONArray("subtasks");
+        if (subtasks == null || subtasks.length() == 0) return label.toString();
+        label.append('\n');
+        for (int index = 0; index < subtasks.length(); index++) {
+            String item = subtasks.optString(index).trim();
+            if (item.isEmpty()) continue;
+            if (label.charAt(label.length() - 1) != '\n') label.append("  ");
+            label.append("• ").append(item);
+        }
+        return label.toString();
     }
 
     private static int parseColor(String value) {

@@ -3,6 +3,7 @@ import { addDays, expandOccurrences, remainingSeconds, segmentsForDate, snapMinu
 
 const base: ScheduleSeries = {
   id: 'series', title: '주간 리뷰', categoryId: 'work', startDate: '2026-07-13', startMinute: 8 * 60 + 25,
+  subtasks: ['비닐봉지', '입욕제'],
   durationMinute: 75, recurrence: { kind: 'none', weekdays: [], endDate: null }, reminderMinute: null,
   createdAt: 1, updatedAt: 1
 };
@@ -16,6 +17,7 @@ describe('schedule occurrence expansion', () => {
     }], '2026-07-13', '2026-07-19');
     expect(occurrences).toHaveLength(2);
     expect(occurrences.map(item => item.title)).toEqual(['주간 리뷰', '수요일 리뷰']);
+    expect(occurrences[0].subtasks).toEqual(['비닐봉지', '입욕제']);
     expect(occurrences[1].startMinute).toBe(600);
   });
 
