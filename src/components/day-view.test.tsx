@@ -10,7 +10,8 @@ const baseProps = {
   occurrences: [],
   onDateChange: vi.fn(),
   onEdit: vi.fn(),
-  onMove: vi.fn(async () => undefined)
+  onMove: vi.fn(async () => undefined),
+  onToggleDetail: vi.fn(async () => undefined)
 };
 
 class TestPointerEvent extends MouseEvent {
@@ -45,15 +46,21 @@ function setMatrixBounds(grid: Element) {
 }
 
 describe('DayView touch gestures', () => {
-  it('shows schedule subtasks as bullets inside the block', () => {
+  it('shows bullet and checkbox details and toggles a checkbox without opening the editor', () => {
+    const onEdit = vi.fn();
+    const onToggleDetail = vi.fn(async () => undefined);
     const occurrence: ScheduleOccurrence = {
       key: 'shopping', seriesId: 'shopping', originalDate: '2026-07-13', date: '2026-07-13',
-      title: '다이소 쇼핑', subtasks: ['비닐봉지', '입욕제'], categoryId: 'work',
+      title: '프로젝트 정리', subtasks: ['ㅡ 참고자료 검토', 'ㅁ 초안 작성', '☑ 공유 완료'], categoryId: 'work',
       startMinute: 18 * 60, durationMinute: 30, reminderMinute: null
     };
-    const { container } = render(<DayView {...baseProps} occurrences={[occurrence]} onAdd={vi.fn()} />);
+    const { container, getByRole } = render(<DayView {...baseProps} occurrences={[occurrence]} onAdd={vi.fn()} onEdit={onEdit} onToggleDetail={onToggleDetail} />);
 
-    expect(container.querySelector('.event-subtasks')?.textContent).toBe('• 비닐봉지  • 입욕제');
+    expect(container.querySelector('.event-detail-bullet')?.textContent).toBe('• 참고자료 검토');
+    fireEvent.click(getByRole('button', { name: '초안 작성 완료' }));
+    expect(onToggleDetail).toHaveBeenCalledWith(expect.objectContaining({ key: 'shopping' }), 1);
+    expect(getByRole('button', { name: '공유 완료 완료 취소' })).toHaveAttribute('aria-pressed', 'true');
+    expect(onEdit).not.toHaveBeenCalled();
   });
 
   it('stacks overlapping plans in thinner lanes without making the hour row taller', () => {
@@ -65,8 +72,8 @@ describe('DayView touch gestures', () => {
     const blocks = Array.from(container.querySelectorAll<HTMLElement>('.matrix-event.stacked'));
 
     expect(blocks).toHaveLength(2);
-    expect(blocks.map(block => block.style.height)).toEqual(['17px', '17px']);
-    expect(blocks.map(block => block.style.top)).toEqual(['338px', '357px']);
+    expect(blocks.map(block => block.style.height)).toEqual(['24px', '24px']);
+    expect(blocks.map(block => block.style.top)).toEqual(['450px', '476px']);
     expect(blocks[1]?.style.left).not.toBe(blocks[0]?.style.left);
   });
 
@@ -86,9 +93,9 @@ describe('DayView touch gestures', () => {
     expect(block).not.toBeNull();
     setMatrixBounds(grid!);
 
-    fireEvent.pointerDown(block!, { pointerId: 10, pointerType: 'touch', clientX: 70, clientY: 340, button: 0 });
-    fireEvent.pointerMove(block!, { pointerId: 10, pointerType: 'touch', clientX: 95, clientY: 340 });
-    fireEvent.pointerUp(block!, { pointerId: 10, pointerType: 'touch', clientX: 95, clientY: 340 });
+    fireEvent.pointerDown(block!, { pointerId: 10, pointerType: 'touch', clientX: 70, clientY: 450, button: 0 });
+    fireEvent.pointerMove(block!, { pointerId: 10, pointerType: 'touch', clientX: 95, clientY: 450 });
+    fireEvent.pointerUp(block!, { pointerId: 10, pointerType: 'touch', clientX: 95, clientY: 450 });
     fireEvent.click(block!);
 
     expect(onAdd).toHaveBeenLastCalledWith(840, 15);
@@ -111,10 +118,10 @@ describe('DayView touch gestures', () => {
     expect(block).not.toBeNull();
     setMatrixBounds(grid!);
 
-    fireEvent.pointerDown(block!, { pointerId: 11, pointerType: 'touch', clientX: 95, clientY: 358, button: 0 });
+    fireEvent.pointerDown(block!, { pointerId: 11, pointerType: 'touch', clientX: 95, clientY: 476, button: 0 });
     act(() => vi.advanceTimersByTime(450));
-    fireEvent.pointerMove(block!, { pointerId: 11, pointerType: 'touch', clientX: 145, clientY: 358 });
-    fireEvent.pointerUp(block!, { pointerId: 11, pointerType: 'touch', clientX: 145, clientY: 358 });
+    fireEvent.pointerMove(block!, { pointerId: 11, pointerType: 'touch', clientX: 145, clientY: 476 });
+    fireEvent.pointerUp(block!, { pointerId: 11, pointerType: 'touch', clientX: 145, clientY: 476 });
 
     expect(onMove).toHaveBeenCalledTimes(1);
     expect(onMove).toHaveBeenLastCalledWith(expect.objectContaining({ key: 'second' }), 855, 45);
@@ -160,8 +167,8 @@ describe('DayView touch gestures', () => {
     setMatrixBounds(grid!);
 
     fireEvent.pointerDown(grid!, { pointerId: 7, pointerType: 'mouse', clientX: 340, clientY: 120, button: 0 });
-    fireEvent.pointerMove(grid!, { pointerId: 7, pointerType: 'mouse', clientX: 160, clientY: 162 });
-    fireEvent.pointerUp(grid!, { pointerId: 7, pointerType: 'mouse', clientX: 160, clientY: 162 });
+    fireEvent.pointerMove(grid!, { pointerId: 7, pointerType: 'mouse', clientX: 160, clientY: 180 });
+    fireEvent.pointerUp(grid!, { pointerId: 7, pointerType: 'mouse', clientX: 160, clientY: 180 });
 
     expect(onAdd).toHaveBeenLastCalledWith(535, 30);
   });

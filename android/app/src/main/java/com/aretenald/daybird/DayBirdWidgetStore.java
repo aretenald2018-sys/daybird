@@ -164,13 +164,18 @@ final class DayBirdWidgetStore {
         StringBuilder label = new StringBuilder(event.optString("title", "일정"));
         JSONArray subtasks = event.optJSONArray("subtasks");
         if (subtasks == null || subtasks.length() == 0) return label.toString();
-        label.append('\n');
+        StringBuilder details = new StringBuilder();
         for (int index = 0; index < subtasks.length(); index++) {
             String item = subtasks.optString(index).trim();
             if (item.isEmpty()) continue;
-            if (label.charAt(label.length() - 1) != '\n') label.append("  ");
-            label.append("• ").append(item);
+            boolean checked = item.matches("^(?:☑|✅).*");
+            boolean checkbox = checked || item.matches("^(?:ㅁ|□|☐).*");
+            String text = item.replaceFirst("^(?:☑|✅|ㅁ|□|☐|ㅡ|[-–—•])\\s*", "").trim();
+            if (text.isEmpty()) continue;
+            if (details.length() > 0) details.append("  ");
+            details.append(checkbox ? (checked ? "☑ " : "☐ ") : "• ").append(text);
         }
+        if (details.length() > 0) label.append('\n').append(details);
         return label.toString();
     }
 

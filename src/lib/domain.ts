@@ -61,6 +61,48 @@ export interface ScheduleOccurrence {
   reminderMinute: number | null;
 }
 
+export interface ScheduleDetail {
+  index: number;
+  kind: 'bullet' | 'checkbox';
+  text: string;
+  checked: boolean;
+}
+
+export function parseScheduleDetails(items: string[] = []): ScheduleDetail[] {
+  return items.flatMap((raw, index) => {
+    const value = raw.trim();
+    if (!value) return [];
+    const checked = /^(?:☑|✅)\s*/.test(value);
+    const checkbox = checked || /^(?:ㅁ|□|☐)\s*/.test(value);
+    const text = value.replace(/^(?:☑|✅|ㅁ|□|☐|ㅡ|[-–—•])\s*/, '').trim();
+    if (!text) return [];
+    return [{ index, kind: checkbox ? 'checkbox' as const : 'bullet' as const, text, checked }];
+  });
+}
+
+export function parseScheduleDetailsText(value: string): string[] {
+  return parseScheduleDetails(value.split(/\r?\n/)).map(detail => {
+    const marker = detail.kind === 'checkbox' ? (detail.checked ? '☑' : 'ㅁ') : 'ㅡ';
+    return `${marker} ${detail.text}`;
+  });
+}
+
+export function formatScheduleDetailsText(items: string[] = []): string {
+  return parseScheduleDetails(items).map(detail => {
+    const marker = detail.kind === 'checkbox' ? (detail.checked ? '☑' : 'ㅁ') : 'ㅡ';
+    return `${marker} ${detail.text}`;
+  }).join('\n');
+}
+
+export function toggleScheduleDetail(items: string[] = [], targetIndex: number): string[] {
+  return items.map((item, index) => {
+    if (index !== targetIndex) return item;
+    const detail = parseScheduleDetails([item])[0];
+    if (!detail || detail.kind !== 'checkbox') return item;
+    return `${detail.checked ? 'ㅁ' : '☑'} ${detail.text}`;
+  });
+}
+
 export interface FocusSession {
   id: string;
   mode: FocusMode;

@@ -1,5 +1,5 @@
 import { describe, expect, it } from 'vitest';
-import { addDays, expandOccurrences, remainingSeconds, segmentsForDate, snapMinute, type FocusSession, type ScheduleSeries } from './domain';
+import { addDays, expandOccurrences, formatScheduleDetailsText, parseScheduleDetails, parseScheduleDetailsText, remainingSeconds, segmentsForDate, snapMinute, toggleScheduleDetail, type FocusSession, type ScheduleSeries } from './domain';
 
 const base: ScheduleSeries = {
   id: 'series', title: '주간 리뷰', categoryId: 'work', startDate: '2026-07-13', startMinute: 8 * 60 + 25,
@@ -49,5 +49,25 @@ describe('time utilities', () => {
     };
     expect(remainingSeconds(session, 41_000)).toBe(60);
     expect(remainingSeconds({ ...session, status: 'paused', pausedRemainingSeconds: 42 }, 99_000)).toBe(42);
+  });
+});
+
+describe('schedule details', () => {
+  it('normalizes bullets and checkboxes while keeping legacy text compatible', () => {
+    const stored = parseScheduleDetailsText('회의 메모\nㅡ 참고자료\nㅁ 초안 작성\n☑ 공유 완료');
+    expect(stored).toEqual(['ㅡ 회의 메모', 'ㅡ 참고자료', 'ㅁ 초안 작성', '☑ 공유 완료']);
+    expect(parseScheduleDetails(stored)).toMatchObject([
+      { kind: 'bullet', text: '회의 메모', checked: false },
+      { kind: 'bullet', text: '참고자료', checked: false },
+      { kind: 'checkbox', text: '초안 작성', checked: false },
+      { kind: 'checkbox', text: '공유 완료', checked: true }
+    ]);
+    expect(formatScheduleDetailsText(stored)).toBe('ㅡ 회의 메모\nㅡ 참고자료\nㅁ 초안 작성\n☑ 공유 완료');
+  });
+
+  it('toggles only the selected checkbox', () => {
+    const details = ['ㅡ 참고자료', 'ㅁ 초안 작성', '☑ 공유 완료'];
+    expect(toggleScheduleDetail(details, 1)).toEqual(['ㅡ 참고자료', '☑ 초안 작성', '☑ 공유 완료']);
+    expect(toggleScheduleDetail(details, 2)).toEqual(['ㅡ 참고자료', 'ㅁ 초안 작성', 'ㅁ 공유 완료']);
   });
 });

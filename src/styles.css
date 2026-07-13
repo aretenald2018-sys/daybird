@@ -67,12 +67,16 @@ svg { width: 22px; height: 22px; stroke-width: 1.9; }
 .timeline-cell { min-width: 0; border-right: 1px solid rgba(60,60,67,.1); border-bottom: 1px solid rgba(60,60,67,.1); background: linear-gradient(180deg, rgba(255,255,255,.3), rgba(245,247,251,.16)); }
 .hour-line { position: absolute; z-index: 1; left: 0; width: 55px; height: 0; pointer-events: none; }
 .hour-line span { position: absolute; top: -8px; width: 48px; color: #9a9aa2; text-align: right; font-size: 12px; font-variant-numeric: tabular-nums; }
-.event-block { position: absolute; z-index: 5; overflow: hidden; padding: 6px 7px 5px 9px; color: #24252a; border: 0; border-left: 3px solid var(--event-color); border-radius: 6px; background: var(--event-bg); box-shadow: inset 0 0 0 1px rgba(255,255,255,.46); cursor: grab; touch-action: none; }
+.event-block { position: absolute; z-index: 5; overflow: hidden; padding: 6px 7px 5px 9px; color: #24252a; border: 0; border-left: 3px solid var(--event-color); border-radius: 6px; background: var(--event-bg); box-shadow: inset 0 0 0 1px rgba(255,255,255,.46); cursor: grab; touch-action: none; font: inherit; }
 .event-block:active { cursor: grabbing; }
 .event-block strong, .event-block span { display: block; overflow: hidden; white-space: nowrap; text-overflow: ellipsis; }
 .event-block strong { font-size: calc(12px * var(--font-scale)); font-weight: 700; line-height: 1.1; }
 .event-block span { margin-top: 1px; color: rgba(28,28,30,.62); font-size: 9px; font-variant-numeric: tabular-nums; }
-.event-block .event-subtasks { color: rgba(28,28,30,.78); font-size: calc(9px * var(--font-scale)); font-variant-numeric: normal; font-weight: 600; }
+.event-block .event-details { display: flex; max-height: 20px; flex-wrap: wrap; align-items: center; gap: 1px 7px; overflow: hidden; color: rgba(28,28,30,.78); font-size: calc(9px * var(--font-scale)); font-variant-numeric: normal; font-weight: 600; line-height: 9px; white-space: normal; }
+.event-block .event-detail-bullet { display: inline; min-width: 0; margin: 0; color: inherit; font: inherit; }
+.event-detail-check { display: inline-flex; min-width: 0; align-items: center; gap: 3px; padding: 0; border: 0; background: transparent; color: inherit; font: inherit; line-height: 1.15; cursor: pointer; }
+.event-detail-check > span { display: inline; flex: 0 0 auto; margin: 0; color: var(--event-color); font-size: 11px; line-height: 1; }
+.event-detail-check.checked { color: rgba(28,28,30,.48); text-decoration: line-through; }
 .event-block .event-time { color: rgba(28,28,30,.55); }
 .event-block .resize-handle { position: absolute; z-index: 2; top: 20%; width: 8px; height: 60%; margin: 0; border-radius: 4px; background: transparent; }
 .event-block .resize-handle.start { left: 0; }
@@ -81,6 +85,7 @@ svg { width: 22px; height: 22px; stroke-width: 1.9; }
 .matrix-event:not(.ends-here) { border-top-right-radius: 0; border-bottom-right-radius: 0; }
 .matrix-event.stacked { padding: 2px 5px; border-left-width: 2px; }
 .matrix-event.stacked strong { font-size: calc(10px * var(--font-scale)); line-height: 1.2; }
+.matrix-event.stacked .event-details, .matrix-event.stacked .event-time { display: none; }
 .matrix-event.dense { padding-top: 1px; padding-bottom: 1px; }
 .matrix-event.dense strong { font-size: calc(9px * var(--font-scale)); }
 .drag-preview { position: absolute; z-index: 8; overflow: hidden; padding: 6px 9px; color: #0066d6; border: 1.5px dashed #1383ff; border-radius: 6px; background: rgba(0,122,255,.13); font-size: 11px; font-weight: 700; pointer-events: none; }
@@ -123,16 +128,18 @@ svg { width: 22px; height: 22px; stroke-width: 1.9; }
 .segmented button.active { color: var(--ink); background: #fff; box-shadow: 0 2px 7px rgba(35,42,58,.1); }
 .scope-picker { grid-template-columns: 1fr 1fr; margin-bottom: 14px; }
 .form-card, .settings-card { overflow: hidden; margin-bottom: 14px; border-radius: 16px; background: #fff; box-shadow: 0 1px 0 rgba(35,42,58,.02); }
-.form-card > label { display: flex; min-height: 54px; align-items: center; gap: 12px; padding: 0 15px; border-bottom: 1px solid var(--line); }
+.form-card > label, .form-card > .title-field { display: flex; min-height: 54px; align-items: center; gap: 12px; padding: 0 15px; border-bottom: 1px solid var(--line); }
 .form-card > label:last-child { border-bottom: 0; }
 .form-card label > span:first-child { min-width: 72px; font-size: 14px; font-weight: 620; }
 .form-card input, .form-card select { min-width: 0; flex: 1; height: 44px; border: 0; outline: 0; background: transparent; color: var(--secondary); text-align: right; }
 .form-card .title-field { min-height: 64px; }
 .form-card .title-field .category-dot { min-width: 13px; width: 13px; height: 13px; border-radius: 50%; }
 .form-card .title-field input { color: var(--ink); text-align: left; font-size: 18px; font-weight: 650; }
-.form-card .subtasks-field { align-items: flex-start; padding-top: 13px; padding-bottom: 10px; }
-.form-card .subtasks-field textarea { min-width: 0; min-height: 78px; flex: 1; resize: vertical; border: 0; outline: 0; background: transparent; color: var(--ink); line-height: 1.55; }
-.form-card .subtasks-field textarea::placeholder { color: #b0b0b6; }
+.form-card .inline-category { display: flex; max-width: 104px; min-width: 84px; align-items: center; gap: 5px; padding: 0 7px 0 9px; border-radius: 16px; background: rgba(118,118,128,.09); }
+.form-card .inline-category select { height: 32px; padding: 0 15px 0 0; color: var(--ink); text-align: left; font-size: 12px; font-weight: 650; }
+.form-card .details-field { align-items: flex-start; padding-top: 13px; padding-bottom: 10px; }
+.form-card .details-field textarea { min-width: 0; min-height: 100px; flex: 1; resize: vertical; border: 0; outline: 0; background: transparent; color: var(--ink); line-height: 1.55; }
+.form-card .details-field textarea::placeholder { color: #b0b0b6; }
 .form-card .field-hint { margin: 0; padding: 10px 15px 12px 99px; color: var(--secondary); font-size: 11px; line-height: 1.45; }
 .weekday-picker { display: grid; grid-template-columns: repeat(7, 1fr); gap: 5px; padding: 12px; border-bottom: 1px solid var(--line); }
 .weekday-picker button { aspect-ratio: 1; min-width: 34px; border: 0; border-radius: 50%; background: var(--canvas); color: var(--secondary); cursor: pointer; }

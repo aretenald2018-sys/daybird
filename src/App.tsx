@@ -28,13 +28,17 @@ import {
   dateKey,
   expandOccurrences,
   formatDate,
+  formatScheduleDetailsText,
   formatDuration,
   formatMinute,
   id,
   parseDateKey,
+  parseScheduleDetails,
+  parseScheduleDetailsText,
   remainingSeconds,
   segmentsForDate,
   startOfWeek,
+  toggleScheduleDetail,
   type AppSettings,
   type Category,
   type FocusMode,
@@ -188,6 +192,26 @@ export default function App() {
     await refresh();
   };
 
+  const quickToggleDetail = async (occurrence: ScheduleOccurrence, detailIndex: number) => {
+    const series = snapshot.schedules.find(item => item.id === occurrence.seriesId);
+    if (!series) return;
+    const subtasks = toggleScheduleDetail(occurrence.subtasks ?? [], detailIndex);
+    if (series.recurrence.kind === 'none') {
+      await db.schedules.update(series.id, { subtasks, updatedAt: Date.now() });
+    } else {
+      const overrideId = `${series.id}:${occurrence.originalDate}`;
+      const existing = await db.overrides.get(overrideId);
+      await db.overrides.put({
+        id: overrideId,
+        seriesId: series.id,
+        occurrenceDate: occurrence.originalDate,
+        action: 'modified',
+        patch: { ...existing?.patch, subtasks }
+      });
+    }
+    await refresh();
+  };
+
   if (!ready) {
     return (
       <main className="loading-screen" aria-label="DayBird 불러오는 중">
@@ -211,6 +235,7 @@ export default function App() {
             onAdd={(start, duration) => openEditor(null, selectedDate, start, duration)}
             onEdit={occurrence => openEditor(occurrence, occurrence.date, occurrence.startMinute, occurrence.durationMinute)}
             onMove={quickUpdateOccurrence}
+            onToggleDetail={quickToggleDetail}
           />
         )}
         {tab === 'week' && (
@@ -286,7 +311,7 @@ function TabButton({ active, icon, label, onClick }: { active: boolean; icon: Re
   );
 }
 
-export function DayView({ date, settings, categories, occurrences, onDateChange, onAdd, onEdit, onMove }: {
+export function DayView({ date, settings, categories, occurrences, onDateChange, onAdd, onEdit, onMove, onToggleDetail }: {
   date: string;
   settings: AppSettings;
   categories: Category[];
@@ -295,10 +320,11 @@ export function DayView({ date, settings, categories, occurrences, onDateChange,
   onAdd: (start: number, duration: number) => void;
   onEdit: (occurrence: ScheduleOccurrence) => void;
   onMove: (occurrence: ScheduleOccurrence, startMinute: number, durationMinute: number) => Promise<void>;
+  onToggleDetail: (occurrence: ScheduleOccurrence, detailIndex: number) => Promise<void>;
 }) {
   const scrollRef = useRef<HTMLDivElement>(null);
   const gridRef = useRef<HTMLDivElement>(null);
-  const hourHeight = settings.blockDensity === 'compact' ? 34 : 42;
+  const hourHeight = settings.blockDensity === 'compact' ? 42 : 56;
   const startMinute = settings.dayStartHour * 60;
   const endMinute = settings.dayEndHour * 60;
   const daySegments = useMemo(() => segmentsForDate(occurrences, date), [date, occurrences]);
@@ -622,13 +648,15 @@ export function DayView({ date, settings, categories, occurrences, onDateChange,
 
           {daySegments.flatMap(segment => {
             const category = categoryMap.get(segment.categoryId) ?? categories.at(-1);
+            const details = parseScheduleDetails(segment.subtasks ?? []);
             const preview = blockPreview?.key === segment.key ? blockPreview : null;
             const displayStart = preview?.start ?? segment.segmentStart;
             const displayEnd = preview ? preview.start + preview.duration : segment.segmentEnd;
             return matrixPieces(displayStart, displayEnd).map(piece => (
-              <button
+              <div
                 key={`${segment.key}:${piece.row}`}
-                type="button"
+                role="button"
+                tabIndex={0}
                 className={`event-block matrix-event${piece.isFirst ? ' starts-here' : ''}${piece.isLast ? ' ends-here' : ''}${segment.laneCount > 1 ? ' stacked' : ''}${segment.laneCount > 2 ? ' dense' : ''}`}
                 style={{
                   ...matrixPieceStyle(piece, segment.lane, segment.laneCount),
@@ -636,7 +664,7 @@ export function DayView({ date, settings, categories, occurrences, onDateChange,
                   '--event-bg': rgba(category?.color ?? '#8D94A0', 0.2),
                   textAlign: settings.textAlign
                 } as React.CSSProperties}
-                aria-label={`${segment.title}${segment.subtasks?.length ? `, 소항목 ${segment.subtasks.join(', ')}` : ''}, ${formatMinute(segment.startMinute)}부터 ${formatMinute(segment.startMinute + segment.durationMinute)}까지`}
+                aria-label={`${segment.title}${details.length ? `, 상세내역 ${details.map(detail => detail.text).join(', ')}` : ''}, ${formatMinute(segment.startMinute)}부터 ${formatMinute(segment.startMinute + segment.durationMinute)}까지`}
                 onPointerDown={event => startBlockDrag(event, segment, 'move')}
                 onPointerMove={moveBlockDrag}
                 onPointerUp={endBlockDrag}
@@ -646,15 +674,40 @@ export function DayView({ date, settings, categories, occurrences, onDateChange,
                   if (Date.now() < suppressClickUntilRef.current) return;
                   onEdit(segment);
                 }}
+                onKeyDown={event => {
+                  if (event.key !== 'Enter' && event.key !== ' ') return;
+                  event.preventDefault();
+                  onEdit(segment);
+                }}
               >
                 {piece.isFirst && <span className="resize-handle start" aria-hidden="true" onPointerDown={event => startBlockDrag(event, segment, 'resize-start')} />}
                 {piece.isFirst && <>
                   <strong>{segment.title}</strong>
-                  {!!segment.subtasks?.length && <span className="event-subtasks">{segment.subtasks.map(item => `• ${item}`).join('  ')}</span>}
+                  {!!details.length && (
+                    <span className="event-details">
+                      {details.map(detail => detail.kind === 'checkbox' ? (
+                        <button
+                          key={detail.index}
+                          type="button"
+                          className={`event-detail-check${detail.checked ? ' checked' : ''}`}
+                          aria-label={`${detail.text} ${detail.checked ? '완료 취소' : '완료'}`}
+                          aria-pressed={detail.checked}
+                          onPointerDown={event => event.stopPropagation()}
+                          onKeyDown={event => event.stopPropagation()}
+                          onClick={event => {
+                            event.stopPropagation();
+                            void onToggleDetail(segment, detail.index);
+                          }}
+                        >
+                          <span aria-hidden="true">{detail.checked ? '☑' : '☐'}</span>{detail.text}
+                        </button>
+                      ) : <span className="event-detail-bullet" key={detail.index}>• {detail.text}</span>)}
+                    </span>
+                  )}
                   {segment.laneCount === 1 && (displayEnd - displayStart) >= 20 && <span className="event-time">{formatMinute(displayStart)}–{formatMinute(displayEnd)}</span>}
                 </>}
                 {piece.isLast && <span className="resize-handle end" aria-hidden="true" onPointerDown={event => startBlockDrag(event, segment, 'resize-end')} />}
-              </button>
+              </div>
             ));
           })}
 
@@ -766,7 +819,7 @@ function EventEditor({ state, snapshot, onClose, onSaved }: {
   const occurrence = state.occurrence;
   const series = occurrence ? snapshot.schedules.find(item => item.id === occurrence.seriesId) : null;
   const [title, setTitle] = useState(occurrence?.title ?? '');
-  const [subtasksText, setSubtasksText] = useState((occurrence?.subtasks ?? []).join('\n'));
+  const [subtasksText, setSubtasksText] = useState(formatScheduleDetailsText(occurrence?.subtasks ?? []));
   const [date, setDate] = useState(state.draftDate);
   const [start, setStart] = useState(timeFromMinute(state.draftStart));
   const [end, setEnd] = useState(timeFromMinute((state.draftStart + state.draftDuration) % 1440));
@@ -784,7 +837,7 @@ function EventEditor({ state, snapshot, onClose, onSaved }: {
     const durationMinute = endMinute <= startMinute ? endMinute + 1440 - startMinute : endMinute - startMinute;
     if (durationMinute < 5) { setError('일정은 최소 5분 이상이어야 해요.'); return; }
     const reminderMinute = reminder === '' ? null : Number(reminder);
-    const subtasks = subtasksText.split(/\r?\n/).map(item => item.trim().replace(/^[•-]\s*/, '')).filter(Boolean);
+    const subtasks = parseScheduleDetailsText(subtasksText);
     const now = Date.now();
 
     if (!series) {
@@ -851,22 +904,29 @@ function EventEditor({ state, snapshot, onClose, onSaved }: {
         )}
 
         <div className="form-card">
-          <label className="title-field"><span className="category-dot" style={{ background: snapshot.categories.find(item => item.id === categoryId)?.color }} /><input autoFocus value={title} onInput={event => setTitle(event.currentTarget.value)} placeholder="무엇을 할까요?" /></label>
+          <div className="title-field">
+            <label className="inline-category">
+              <span className="category-dot" style={{ background: snapshot.categories.find(item => item.id === categoryId)?.color }} />
+              <select aria-label="카테고리" value={categoryId} onChange={event => setCategoryId(event.target.value)}>
+                {snapshot.categories.filter(item => !item.archived).map(item => <option key={item.id} value={item.id}>{item.name}</option>)}
+              </select>
+            </label>
+            <input aria-label="일정 이름" autoFocus value={title} onInput={event => setTitle(event.currentTarget.value)} placeholder="무엇을 할까요?" />
+          </div>
           <label><span>날짜</span><input type="date" value={date} onInput={event => setDate(event.currentTarget.value)} /></label>
           <label><span>시작</span><input type="time" step="300" value={start} onInput={event => setStart(event.currentTarget.value)} /></label>
           <label><span>종료</span><input type="time" step="300" value={end} onInput={event => setEnd(event.currentTarget.value)} /></label>
         </div>
 
         <div className="form-card">
-          <label className="subtasks-field">
-            <span>소항목</span>
-            <textarea value={subtasksText} onInput={event => setSubtasksText(event.currentTarget.value)} placeholder={'비닐봉지\n입욕제'} rows={3} />
+          <label className="details-field">
+            <span>상세내역</span>
+            <textarea value={subtasksText} onInput={event => setSubtasksText(event.currentTarget.value)} placeholder={'ㅡ 메모로 표시할 내용\nㅁ 완료 여부를 확인할 항목'} rows={4} />
           </label>
-          <p className="field-hint">한 줄에 하나씩 입력하면 일정 블록과 위젯에 불렛으로 표시됩니다.</p>
+          <p className="field-hint">한 줄씩 입력하세요. ㅡ로 시작하면 불렛, ㅁ으로 시작하면 체크박스로 표시됩니다.</p>
         </div>
 
         <div className="form-card">
-          <label><span>카테고리</span><select value={categoryId} onChange={event => setCategoryId(event.target.value)}>{snapshot.categories.filter(item => !item.archived).map(item => <option key={item.id} value={item.id}>{item.name}</option>)}</select></label>
           <label><span>반복</span><select value={repeat} disabled={scope === 'occurrence'} onChange={event => setRepeat(event.target.value as 'none' | 'daily' | 'weekly')}><option value="none">반복 안 함</option><option value="daily">매일</option><option value="weekly">선택 요일</option></select></label>
           {repeat === 'weekly' && scope === 'series' && (
             <div className="weekday-picker" aria-label="반복 요일">
