@@ -26,6 +26,7 @@ export interface ScheduleSeries {
   durationMinute: number;
   recurrence: RecurrenceRule;
   reminderMinute: number | null;
+  completed?: boolean;
   createdAt: number;
   updatedAt: number;
 }
@@ -38,6 +39,7 @@ export interface OccurrencePatch {
   startMinute?: number;
   durationMinute?: number;
   reminderMinute?: number | null;
+  completed?: boolean;
 }
 
 export interface OccurrenceOverride {
@@ -59,6 +61,7 @@ export interface ScheduleOccurrence {
   startMinute: number;
   durationMinute: number;
   reminderMinute: number | null;
+  completed?: boolean;
 }
 
 export interface ScheduleDetail {
@@ -230,7 +233,8 @@ export function expandOccurrences(
         categoryId: patch.categoryId ?? series.categoryId,
         startMinute: patch.startMinute ?? series.startMinute,
         durationMinute: patch.durationMinute ?? series.durationMinute,
-        reminderMinute: patch.reminderMinute !== undefined ? patch.reminderMinute : series.reminderMinute
+        reminderMinute: patch.reminderMinute !== undefined ? patch.reminderMinute : series.reminderMinute,
+        completed: patch.completed ?? series.completed ?? false
       });
     }
     cursor = addDays(cursor, 1);
@@ -251,7 +255,8 @@ export function expandOccurrences(
       categoryId: override.patch.categoryId ?? series.categoryId,
       startMinute: override.patch.startMinute ?? series.startMinute,
       durationMinute: override.patch.durationMinute ?? series.durationMinute,
-      reminderMinute: override.patch.reminderMinute !== undefined ? override.patch.reminderMinute : series.reminderMinute
+      reminderMinute: override.patch.reminderMinute !== undefined ? override.patch.reminderMinute : series.reminderMinute,
+      completed: override.patch.completed ?? series.completed ?? false
     });
   }
 

@@ -65,7 +65,7 @@ final class DayBirdWidgetStore {
         int maxRows = minHeight < 150 ? 2 : 4;
         views.setTextViewText(R.id.agenda_date, new SimpleDateFormat("M월 d일 E", Locale.KOREAN).format(new Date()));
         views.setTextViewText(R.id.agenda_summary, todayEvents.size() + "개 일정 · 다음 순서");
-        bindRows(views, upcoming, maxRows, AGENDA_ROWS, AGENDA_COLORS, AGENDA_TIMES, AGENDA_TITLES);
+        bindRows(context, views, upcoming, maxRows, AGENDA_ROWS, AGENDA_COLORS, AGENDA_TIMES, AGENDA_TITLES);
         views.setViewVisibility(R.id.agenda_empty, upcoming.isEmpty() ? View.VISIBLE : View.GONE);
         views.setOnClickPendingIntent(R.id.agenda_root, openApp(context, 201));
         manager.updateAppWidget(widgetId, views);
@@ -77,7 +77,7 @@ final class DayBirdWidgetStore {
         int minHeight = widgetOptions(manager, widgetId).getInt(AppWidgetManager.OPTION_APPWIDGET_MIN_HEIGHT, 180);
         int maxRows = minHeight < 220 ? 4 : 6;
         views.setTextViewText(R.id.timeline_date, new SimpleDateFormat("M월 d일 E요일", Locale.KOREAN).format(new Date()));
-        bindRows(views, events, maxRows, TIMELINE_ROWS, TIMELINE_COLORS, TIMELINE_TIMES, TIMELINE_TITLES);
+        bindRows(context, views, events, maxRows, TIMELINE_ROWS, TIMELINE_COLORS, TIMELINE_TIMES, TIMELINE_TITLES);
         views.setViewVisibility(R.id.timeline_empty, events.isEmpty() ? View.VISIBLE : View.GONE);
         views.setOnClickPendingIntent(R.id.timeline_widget_root, openApp(context, 202));
         manager.updateAppWidget(widgetId, views);
@@ -106,16 +106,22 @@ final class DayBirdWidgetStore {
         manager.updateAppWidget(widgetId, views);
     }
 
-    private static void bindRows(RemoteViews views, List<JSONObject> events, int maxRows, int[] rows, int[] colors, int[] times, int[] titles) {
+    private static void bindRows(Context context, RemoteViews views, List<JSONObject> events, int maxRows, int[] rows, int[] colors, int[] times, int[] titles) {
+        float density = context.getResources().getDisplayMetrics().density;
         for (int index = 0; index < rows.length; index++) {
             boolean visible = index < events.size() && index < maxRows;
             views.setViewVisibility(rows[index], visible ? View.VISIBLE : View.GONE);
             if (!visible) continue;
             JSONObject event = events.get(index);
+            boolean completed = event.optBoolean("completed", false);
             views.setTextViewText(times[index], formatMinute(event.optInt("startMinute")));
             views.setTextViewText(titles[index], eventLabel(event));
             views.setInt(titles[index], "setMaxLines", 2);
-            views.setInt(colors[index], "setBackgroundColor", parseColor(event.optString("color", "#8D94A0")));
+            views.setInt(rows[index], "setBackgroundResource", completed ? R.drawable.widget_completed_row : android.R.color.transparent);
+            views.setViewPadding(rows[index], completed ? Math.round(6 * density) : 0, completed ? Math.round(2 * density) : 0, completed ? Math.round(6 * density) : 0, completed ? Math.round(2 * density) : 0);
+            views.setTextColor(times[index], Color.parseColor(completed ? "#EAF3FF" : "#73737B"));
+            views.setTextColor(titles[index], Color.parseColor(completed ? "#FFFFFF" : "#1C1C1E"));
+            views.setInt(colors[index], "setBackgroundColor", completed ? Color.WHITE : parseColor(event.optString("color", "#8D94A0")));
         }
     }
 
@@ -161,7 +167,7 @@ final class DayBirdWidgetStore {
     }
 
     private static String eventLabel(JSONObject event) {
-        StringBuilder label = new StringBuilder(event.optString("title", "일정"));
+        StringBuilder label = new StringBuilder(event.optBoolean("completed", false) ? "✓ " : "").append(event.optString("title", "일정"));
         JSONArray subtasks = event.optJSONArray("subtasks");
         if (subtasks == null || subtasks.length() == 0) return label.toString();
         StringBuilder details = new StringBuilder();

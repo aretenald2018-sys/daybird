@@ -71,6 +71,7 @@ const EMPTY_CREATE_LONG_PRESS_MS = 360;
 const DEFAULT_EVENT_DURATION_MINUTE = 30;
 const POINTER_DRAG_THRESHOLD = 10;
 const CLICK_SUPPRESS_MS = 700;
+const COMPLETED_EVENT_COLOR = '#0A63D8';
 
 const EMPTY_SNAPSHOT: DayBirdSnapshot = {
   categories: [], schedules: [], overrides: [], focusSessions: [], settings: DEFAULT_SETTINGS
@@ -186,7 +187,8 @@ export default function App() {
           date: occurrence.date,
           startMinute,
           durationMinute,
-          reminderMinute: occurrence.reminderMinute
+          reminderMinute: occurrence.reminderMinute,
+          completed: occurrence.completed
         }
       });
       notify('이번 반복 일정의 시간만 조정했어요.');
@@ -673,14 +675,14 @@ export function DayView({ date, settings, categories, occurrences, onDateChange,
                 key={`${segment.key}:${piece.row}`}
                 role="button"
                 tabIndex={0}
-                className={`event-block matrix-event${piece.isFirst ? ' starts-here' : ''}${piece.isLast ? ' ends-here' : ''}${segment.laneCount > 1 ? ' stacked' : ''}${segment.laneCount > 2 ? ' dense' : ''}${selectedBlockKey === segment.key ? ' selected' : ''}`}
+                className={`event-block matrix-event${piece.isFirst ? ' starts-here' : ''}${piece.isLast ? ' ends-here' : ''}${segment.laneCount > 1 ? ' stacked' : ''}${segment.laneCount > 2 ? ' dense' : ''}${selectedBlockKey === segment.key ? ' selected' : ''}${segment.completed ? ' completed' : ''}`}
                 style={{
                   ...matrixPieceStyle(piece, segment.lane, segment.laneCount),
-                  '--event-color': category?.color ?? '#8D94A0',
-                  '--event-bg': rgba(category?.color ?? '#8D94A0', 0.2),
+                  '--event-color': segment.completed ? COMPLETED_EVENT_COLOR : category?.color ?? '#8D94A0',
+                  '--event-bg': segment.completed ? COMPLETED_EVENT_COLOR : rgba(category?.color ?? '#8D94A0', 0.2),
                   textAlign: settings.textAlign
                 } as React.CSSProperties}
-                aria-label={`${segment.title}${details.length ? `, 상세내역 ${details.map(detail => detail.text).join(', ')}` : ''}, ${formatMinute(segment.startMinute)}부터 ${formatMinute(segment.startMinute + segment.durationMinute)}까지`}
+                aria-label={`${segment.title}${segment.completed ? ', 완료됨' : ''}${details.length ? `, 상세내역 ${details.map(detail => detail.text).join(', ')}` : ''}, ${formatMinute(segment.startMinute)}부터 ${formatMinute(segment.startMinute + segment.durationMinute)}까지`}
                 onPointerDown={event => startBlockDrag(event, segment, 'move')}
                 onPointerMove={moveBlockDrag}
                 onPointerUp={endBlockDrag}
@@ -803,16 +805,16 @@ function WeekView({ date, settings, categories, occurrences, onDateChange, onOpe
                     const category = categoriesMap.get(segment.categoryId);
                     return (
                       <span
-                        className="week-event"
+                        className={`week-event${segment.completed ? ' completed' : ''}`}
                         key={`${segment.key}:${segment.segmentStart}`}
                         style={{
                           top: `${(segment.segmentStart - startMinute) * pxPerMinute}px`,
                           height: `${Math.max(4, (segment.segmentEnd - segment.segmentStart) * pxPerMinute)}px`,
-                          background: rgba(category?.color ?? '#8D94A0', 0.75)
+                          background: segment.completed ? COMPLETED_EVENT_COLOR : rgba(category?.color ?? '#8D94A0', 0.75)
                         }}
-                        title={`${segment.title} ${formatMinute(segment.startMinute)}`}
+                        title={`${segment.title}${segment.completed ? ' 완료됨' : ''} ${formatMinute(segment.startMinute)}`}
                       >
-                        {(segment.segmentEnd - segment.segmentStart) >= 45 ? segment.title : ''}
+                        {(segment.segmentEnd - segment.segmentStart) >= 45 ? `${segment.completed ? '✓ ' : ''}${segment.title}` : ''}
                       </span>
                     );
                   })}
@@ -862,7 +864,7 @@ function EventEditor({ state, snapshot, onClose, onSaved }: {
       const newSeries: ScheduleSeries = {
         id: id('schedule'), title: title.trim(), subtasks, categoryId, startDate: date, startMinute, durationMinute,
         recurrence: { kind: repeat, weekdays: repeat === 'weekly' ? weekdays : [], endDate: null },
-        reminderMinute, createdAt: now, updatedAt: now
+        reminderMinute, completed: false, createdAt: now, updatedAt: now
       };
       await db.schedules.add(newSeries);
       if (reminderMinute !== null && isNative) await requestNotificationPermission();
@@ -874,7 +876,7 @@ function EventEditor({ state, snapshot, onClose, onSaved }: {
       await db.schedules.update(series.id, {
         title: title.trim(), subtasks, categoryId, startDate: date, startMinute, durationMinute,
         recurrence: { kind: repeat, weekdays: repeat === 'weekly' ? weekdays : [], endDate: null },
-        reminderMinute, updatedAt: now
+        reminderMinute, completed: repeat === 'none' ? occurrence?.completed ?? series.completed ?? false : false, updatedAt: now
       });
       await onSaved('반복 일정을 업데이트했어요.');
     } else if (occurrence) {
@@ -883,11 +885,30 @@ function EventEditor({ state, snapshot, onClose, onSaved }: {
         seriesId: series.id,
         occurrenceDate: occurrence.originalDate,
         action: 'modified',
-        patch: { title: title.trim(), subtasks, categoryId, date, startMinute, durationMinute, reminderMinute }
+        patch: { title: title.trim(), subtasks, categoryId, date, startMinute, durationMinute, reminderMinute, completed: occurrence.completed }
       };
       await db.overrides.put(override);
       await onSaved('이번 일정만 업데이트했어요.');
     }
+  };
+
+  const toggleCompleted = async () => {
+    if (!series || !occurrence) return;
+    const completed = !occurrence.completed;
+    if (series.recurrence.kind === 'none') {
+      await db.schedules.update(series.id, { completed, updatedAt: Date.now() });
+    } else {
+      const overrideId = `${series.id}:${occurrence.originalDate}`;
+      const existing = await db.overrides.get(overrideId);
+      await db.overrides.put({
+        id: overrideId,
+        seriesId: series.id,
+        occurrenceDate: occurrence.originalDate,
+        action: 'modified',
+        patch: { ...existing?.patch, completed }
+      });
+    }
+    await onSaved(completed ? '일정을 완료했어요.' : '일정 완료를 취소했어요.');
   };
 
   const remove = async () => {
@@ -957,6 +978,20 @@ function EventEditor({ state, snapshot, onClose, onSaved }: {
         </div>
 
         {error && <p className="form-error">{error}</p>}
+        {series && (
+          <button
+            type="button"
+            className={`completion-button${occurrence?.completed ? ' completed' : ''}`}
+            aria-pressed={occurrence?.completed ?? false}
+            onClick={() => void toggleCompleted()}
+          >
+            <span className="completion-check" aria-hidden="true"><Check /></span>
+            <span>
+              <strong>{occurrence?.completed ? '완료 취소' : '일정 완료'}</strong>
+              <small>{occurrence?.completed ? '진행 중 상태로 되돌립니다' : series.recurrence.kind === 'none' ? '이 일정을 완료 상태로 표시합니다' : '이번 반복 일정만 완료 상태로 표시합니다'}</small>
+            </span>
+          </button>
+        )}
         {series && <button type="button" className="danger-button" onClick={() => void remove()}><Trash2 />{scope === 'occurrence' ? '이번 일정 삭제' : '전체 일정 삭제'}</button>}
       </section>
     </div>

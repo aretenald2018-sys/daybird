@@ -19,7 +19,8 @@ export async function syncDayBirdWidgets(snapshot: DayBirdSnapshot): Promise<voi
     subtasks: occurrence.subtasks ?? [],
     startMinute: occurrence.startMinute,
     durationMinute: occurrence.durationMinute,
-    color: categoryColors.get(occurrence.categoryId) ?? '#8D94A0'
+    color: categoryColors.get(occurrence.categoryId) ?? '#8D94A0',
+    completed: occurrence.completed
   }));
   const active = snapshot.focusSessions.find(session => session.status === 'running' || session.status === 'paused') ?? null;
   const focus = active ? {

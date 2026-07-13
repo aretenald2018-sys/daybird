@@ -27,6 +27,15 @@ describe('schedule occurrence expansion', () => {
     expect(occurrences.map(item => item.date)).toEqual(['2026-07-13', '2026-07-15']);
   });
 
+  it('keeps completion on one recurring occurrence without completing the next one', () => {
+    const daily = { ...base, recurrence: { kind: 'daily' as const, weekdays: [], endDate: '2026-07-14' } };
+    const occurrences = expandOccurrences([daily], [{
+      id: 'done', seriesId: 'series', occurrenceDate: '2026-07-13', action: 'modified', patch: { completed: true }
+    }], '2026-07-13', '2026-07-14');
+
+    expect(occurrences.map(item => item.completed)).toEqual([true, false]);
+  });
+
   it('renders cross-midnight schedules on both dates', () => {
     const overnight = { ...base, startMinute: 23 * 60, durationMinute: 120 };
     const occurrence = expandOccurrences([overnight], [], '2026-07-13', '2026-07-13');

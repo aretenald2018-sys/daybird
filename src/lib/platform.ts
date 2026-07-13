@@ -59,7 +59,7 @@ export async function syncScheduleNotifications(series: ScheduleSeries[], overri
 
   const start = dateKey();
   const end = addDays(start, 90);
-  const occurrences = expandOccurrences(series, overrides, start, end).filter(item => item.reminderMinute !== null);
+  const occurrences = expandOccurrences(series, overrides, start, end).filter(item => item.reminderMinute !== null && !item.completed);
   const notifications: LocalNotificationSchema[] = [];
   for (const occurrence of occurrences) {
     const at = occurrenceDateTime(occurrence, -(occurrence.reminderMinute ?? 0));

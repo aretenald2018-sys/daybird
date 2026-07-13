@@ -46,6 +46,19 @@ function setMatrixBounds(grid: Element) {
 }
 
 describe('DayView touch gestures', () => {
+  it('uses an accessible saturated blue treatment for a completed schedule', () => {
+    const occurrence: ScheduleOccurrence = {
+      key: 'done', seriesId: 'done', originalDate: '2026-07-13', date: '2026-07-13',
+      title: '완료한 일정', categoryId: 'work', startMinute: 18 * 60, durationMinute: 30, reminderMinute: null, completed: true
+    };
+    const { container, getByRole } = render(<DayView {...baseProps} occurrences={[occurrence]} onAdd={vi.fn()} />);
+    const block = getByRole('button', { name: /완료한 일정, 완료됨/ });
+
+    expect(block).toHaveClass('completed');
+    expect((block as HTMLElement).style.getPropertyValue('--event-bg')).toBe('#0A63D8');
+    expect(container.querySelector('.event-block.completed strong')?.textContent).toBe('완료한 일정');
+  });
+
   it('shows bullet and checkbox details and toggles a checkbox without opening the editor', () => {
     const onEdit = vi.fn();
     const onToggleDetail = vi.fn(async () => undefined);
