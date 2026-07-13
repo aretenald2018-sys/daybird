@@ -15,7 +15,6 @@ import {
   RotateCcw,
   Settings,
   SlidersHorizontal,
-  Sparkles,
   Square,
   TimerReset,
   Trash2,
@@ -35,7 +34,6 @@ import {
   parseDateKey,
   remainingSeconds,
   segmentsForDate,
-  snapMinute,
   startOfWeek,
   type AppSettings,
   type Category,
@@ -60,6 +58,8 @@ import {
 type Tab = 'day' | 'week' | 'focus' | 'settings';
 type Toast = { id: number; message: string };
 const TIME_CELL_MINUTE = 10;
+const TIME_MATRIX_COLUMNS = 6;
+const TIME_GRID_GUTTER = 64;
 
 const EMPTY_SNAPSHOT: DayBirdSnapshot = {
   categories: [], schedules: [], overrides: [], focusSessions: [], settings: DEFAULT_SETTINGS
@@ -289,7 +289,8 @@ export function DayView({ date, settings, categories, occurrences, onDateChange,
   onMove: (occurrence: ScheduleOccurrence, startMinute: number, durationMinute: number) => Promise<void>;
 }) {
   const scrollRef = useRef<HTMLDivElement>(null);
-  const pixelsPerMinute = settings.blockDensity === 'compact' ? 0.86 : 1.06;
+  const gridRef = useRef<HTMLDivElement>(null);
+  const hourHeight = settings.blockDensity === 'compact' ? 34 : 42;
   const startMinute = settings.dayStartHour * 60;
   const endMinute = settings.dayEndHour * 60;
   const daySegments = useMemo(() => segmentsForDate(occurrences, date), [date, occurrences]);
@@ -300,6 +301,7 @@ export function DayView({ date, settings, categories, occurrences, onDateChange,
   const categoryMap = new Map(categories.map(category => [category.id, category]));
   const dragRef = useRef<{
     pointerId: number;
+    startX: number;
     startY: number;
     startMinute: number;
     startScrollTop: number;
@@ -310,7 +312,7 @@ export function DayView({ date, settings, categories, occurrences, onDateChange,
   const dragPreviewRef = useRef<{ start: number; end: number } | null>(null);
   const blockDragRef = useRef<{
     pointerId: number;
-    startY: number;
+    anchorMinute: number;
     occurrence: ScheduleOccurrence;
     originalStart: number;
     originalDuration: number;
@@ -339,6 +341,45 @@ export function DayView({ date, settings, categories, occurrences, onDateChange,
     }
   };
 
+  const minuteAtPointer = (clientX: number, clientY: number) => {
+    const rect = gridRef.current?.getBoundingClientRect();
+    if (!rect) return rangeStart;
+    const gridWidth = Math.max(1, rect.width - TIME_GRID_GUTTER);
+    const columnWidth = gridWidth / TIME_MATRIX_COLUMNS;
+    const column = Math.max(0, Math.min(TIME_MATRIX_COLUMNS - 1, Math.floor((clientX - rect.left - TIME_GRID_GUTTER) / columnWidth)));
+    const row = Math.max(0, Math.min((rangeEnd - rangeStart) / 60 - 1, Math.floor((clientY - rect.top) / hourHeight)));
+    return rangeStart + row * 60 + column * TIME_CELL_MINUTE;
+  };
+
+  const matrixPieces = (start: number, end: number) => {
+    const safeStart = Math.max(rangeStart, Math.min(rangeEnd - TIME_CELL_MINUTE, Math.floor(start / TIME_CELL_MINUTE) * TIME_CELL_MINUTE));
+    const safeEnd = Math.max(safeStart + TIME_CELL_MINUTE, Math.min(rangeEnd, Math.ceil(end / TIME_CELL_MINUTE) * TIME_CELL_MINUTE));
+    const firstRow = Math.floor((safeStart - rangeStart) / 60);
+    const lastRow = Math.floor((safeEnd - TIME_CELL_MINUTE - rangeStart) / 60);
+    return Array.from({ length: lastRow - firstRow + 1 }, (_, index) => {
+      const row = firstRow + index;
+      const rowStart = rangeStart + row * 60;
+      return {
+        row,
+        start: Math.max(safeStart, rowStart),
+        end: Math.min(safeEnd, rowStart + 60),
+        isFirst: row === firstRow,
+        isLast: row === lastRow
+      };
+    });
+  };
+
+  const matrixPieceStyle = (piece: ReturnType<typeof matrixPieces>[number]) => {
+    const startRatio = (piece.start - (rangeStart + piece.row * 60)) / 60;
+    const widthRatio = (piece.end - piece.start) / 60;
+    return {
+      top: `${piece.row * hourHeight + 2}px`,
+      height: `${Math.max(26, hourHeight - 3)}px`,
+      left: `calc(${TIME_GRID_GUTTER}px + ${startRatio * 100}% - ${TIME_GRID_GUTTER * startRatio}px)`,
+      width: `calc(${widthRatio * 100}% - ${TIME_GRID_GUTTER * widthRatio}px - 3px)`
+    } as React.CSSProperties;
+  };
+
   const clearTimelineGesture = () => {
     const timer = dragRef.current?.longPressTimer;
     if (timer != null) window.clearTimeout(timer);
@@ -349,11 +390,13 @@ export function DayView({ date, settings, categories, occurrences, onDateChange,
   const handlePointerDown = (event: React.PointerEvent<HTMLDivElement>) => {
     if (event.button !== 0 || (event.target as HTMLElement).closest('.event-block')) return;
     const rect = event.currentTarget.getBoundingClientRect();
-    const minute = snapMinute(rangeStart + (event.clientY - rect.top) / pixelsPerMinute, TIME_CELL_MINUTE);
+    if (event.clientX < rect.left + TIME_GRID_GUTTER) return;
+    const minute = minuteAtPointer(event.clientX, event.clientY);
     safelyCapturePointer(event.currentTarget, event.pointerId);
     const isTouch = event.pointerType === 'touch';
     const gesture = {
       pointerId: event.pointerId,
+      startX: event.clientX,
       startY: event.clientY,
       startMinute: minute,
       startScrollTop: scrollRef.current?.scrollTop ?? 0,
@@ -377,23 +420,22 @@ export function DayView({ date, settings, categories, occurrences, onDateChange,
   const handlePointerMove = (event: React.PointerEvent<HTMLDivElement>) => {
     if (!dragRef.current || dragRef.current.pointerId !== event.pointerId) return;
     const gesture = dragRef.current;
-    const pixelDelta = event.clientY - gesture.startY;
-    if (gesture.state === 'pending' && Math.abs(pixelDelta) > 6) {
+    const verticalDelta = event.clientY - gesture.startY;
+    const horizontalDelta = event.clientX - gesture.startX;
+    if (gesture.state === 'pending' && Math.abs(verticalDelta) > 6 && Math.abs(verticalDelta) >= Math.abs(horizontalDelta)) {
       if (gesture.longPressTimer !== null) window.clearTimeout(gesture.longPressTimer);
       gesture.longPressTimer = null;
       gesture.state = 'scrolling';
     }
     if (gesture.state === 'scrolling') {
-      if (scrollRef.current) scrollRef.current.scrollTop = gesture.startScrollTop - pixelDelta;
+      if (scrollRef.current) scrollRef.current.scrollTop = gesture.startScrollTop - verticalDelta;
       return;
     }
     if (gesture.state !== 'dragging') return;
-    const delta = pixelDelta / pixelsPerMinute;
-    const current = snapMinute(gesture.startMinute + delta, TIME_CELL_MINUTE);
-    updateDragPreview({
-      start: Math.min(dragRef.current.startMinute, current),
-      end: Math.max(dragRef.current.startMinute + TIME_CELL_MINUTE, current)
-    });
+    const current = minuteAtPointer(event.clientX, event.clientY);
+    updateDragPreview(current >= gesture.startMinute
+      ? { start: gesture.startMinute, end: current + TIME_CELL_MINUTE }
+      : { start: current, end: gesture.startMinute + TIME_CELL_MINUTE });
   };
 
   const handlePointerUp = (event: React.PointerEvent<HTMLDivElement>) => {
@@ -413,7 +455,7 @@ export function DayView({ date, settings, categories, occurrences, onDateChange,
     safelyCapturePointer(event.currentTarget, event.pointerId);
     blockDragRef.current = {
       pointerId: event.pointerId,
-      startY: event.clientY,
+      anchorMinute: minuteAtPointer(event.clientX, event.clientY),
       occurrence,
       originalStart: occurrence.startMinute,
       originalDuration: occurrence.durationMinute,
@@ -426,19 +468,19 @@ export function DayView({ date, settings, categories, occurrences, onDateChange,
   const moveBlockDrag = (event: React.PointerEvent<HTMLElement>) => {
     const drag = blockDragRef.current;
     if (!drag || drag.pointerId !== event.pointerId) return;
-    const rawDelta = (event.clientY - drag.startY) / pixelsPerMinute;
-    const delta = Math.round(rawDelta / settings.snapMinute) * settings.snapMinute;
-    if (Math.abs(rawDelta) > 3) drag.changed = true;
+    const rawDelta = minuteAtPointer(event.clientX, event.clientY) - drag.anchorMinute;
+    const delta = Math.round(rawDelta / TIME_CELL_MINUTE) * TIME_CELL_MINUTE;
+    if (Math.abs(delta) >= TIME_CELL_MINUTE) drag.changed = true;
     let nextStart = drag.originalStart;
     let nextDuration = drag.originalDuration;
     if (drag.mode === 'move') {
-      nextStart = Math.max(0, Math.min(1435, drag.originalStart + delta));
+      nextStart = Math.max(0, Math.min(1440 - TIME_CELL_MINUTE, drag.originalStart + delta));
     } else if (drag.mode === 'resize-start') {
       const end = drag.originalStart + drag.originalDuration;
-      nextStart = Math.max(0, Math.min(end - settings.snapMinute, drag.originalStart + delta));
+      nextStart = Math.max(0, Math.min(end - TIME_CELL_MINUTE, drag.originalStart + delta));
       nextDuration = end - nextStart;
     } else {
-      nextDuration = Math.max(settings.snapMinute, Math.min(1440, drag.originalDuration + delta));
+      nextDuration = Math.max(TIME_CELL_MINUTE, Math.min(1440, drag.originalDuration + delta));
     }
     updateBlockPreview({ key: drag.occurrence.key, start: nextStart, duration: nextDuration });
   };
@@ -459,9 +501,9 @@ export function DayView({ date, settings, categories, occurrences, onDateChange,
     if (date !== dateKey() || !scrollRef.current) return;
     const now = new Date();
     const minute = now.getHours() * 60 + now.getMinutes();
-    const target = Math.max(0, (minute - rangeStart) * pixelsPerMinute - 220);
+    const target = Math.max(0, ((minute - rangeStart) / 60) * hourHeight - 220);
     scrollRef.current.scrollTop = target;
-  }, [date, pixelsPerMinute, rangeStart]);
+  }, [date, hourHeight, rangeStart]);
 
   useEffect(() => () => {
     const timer = dragRef.current?.longPressTimer;
@@ -490,9 +532,10 @@ export function DayView({ date, settings, categories, occurrences, onDateChange,
         <div
           className="timeline-grid"
           style={{
-            height: `${(rangeEnd - rangeStart) * pixelsPerMinute}px`,
-            '--time-cell-height': `${TIME_CELL_MINUTE * pixelsPerMinute}px`
+            height: `${((rangeEnd - rangeStart) / 60) * hourHeight}px`,
+            '--time-row-height': `${hourHeight}px`
           } as React.CSSProperties}
+          ref={gridRef}
           onPointerDown={handlePointerDown}
           onPointerMove={handlePointerMove}
           onPointerUp={handlePointerUp}
@@ -500,30 +543,26 @@ export function DayView({ date, settings, categories, occurrences, onDateChange,
           onContextMenu={event => event.preventDefault()}
         >
           <div className="time-cell-grid" aria-hidden="true">
-            {timeCells.map(minute => <span className={minute % 60 === 0 ? 'timeline-cell hour-cell' : 'timeline-cell'} key={minute} />)}
+            {timeCells.map(minute => <span className="timeline-cell" key={minute} />)}
           </div>
           {hours.map(hour => (
-            <div className="hour-line" key={hour} style={{ top: `${(hour * 60 - rangeStart) * pixelsPerMinute}px` }}>
+            <div className="hour-line" key={hour} style={{ top: `${((hour * 60 - rangeStart) / 60) * hourHeight}px` }}>
               <span>{hour === 24 ? '24:00' : `${String(hour).padStart(2, '0')}:00`}</span>
             </div>
           ))}
 
-          {daySegments.map(segment => {
+          {daySegments.flatMap(segment => {
             const category = categoryMap.get(segment.categoryId) ?? categories.at(-1);
-            const width = 100 / segment.laneCount;
             const preview = blockPreview?.key === segment.key ? blockPreview : null;
             const displayStart = preview?.start ?? segment.segmentStart;
             const displayEnd = preview ? preview.start + preview.duration : segment.segmentEnd;
-            return (
+            return matrixPieces(displayStart, displayEnd).map(piece => (
               <button
-                key={`${segment.key}:${segment.segmentStart}`}
+                key={`${segment.key}:${piece.row}`}
                 type="button"
-                className="event-block"
+                className={`event-block matrix-event${piece.isFirst ? ' starts-here' : ''}${piece.isLast ? ' ends-here' : ''}`}
                 style={{
-                  top: `${(displayStart - rangeStart) * pixelsPerMinute + 2}px`,
-                  height: `${Math.max(24, (Math.min(1440, displayEnd) - displayStart) * pixelsPerMinute - 3)}px`,
-                  left: `calc(64px + ${segment.lane * width}% - ${segment.lane * 64 / segment.laneCount}px)`,
-                  width: `calc(${width}% - ${64 / segment.laneCount + 5}px)`,
+                  ...matrixPieceStyle(piece),
                   '--event-color': category?.color ?? '#8D94A0',
                   '--event-bg': rgba(category?.color ?? '#8D94A0', 0.2),
                   textAlign: settings.textAlign
@@ -539,34 +578,25 @@ export function DayView({ date, settings, categories, occurrences, onDateChange,
                   onEdit(segment);
                 }}
               >
-                <span className="resize-handle top" aria-hidden="true" onPointerDown={event => startBlockDrag(event, segment, 'resize-start')} />
-                <strong>{segment.title}</strong>
-                {(displayEnd - displayStart) >= 30 && <span>{formatMinute(preview?.start ?? segment.startMinute)}–{formatMinute((preview?.start ?? segment.startMinute) + (preview?.duration ?? segment.durationMinute))}</span>}
-                <span className="resize-handle bottom" aria-hidden="true" onPointerDown={event => startBlockDrag(event, segment, 'resize-end')} />
+                {piece.isFirst && <span className="resize-handle start" aria-hidden="true" onPointerDown={event => startBlockDrag(event, segment, 'resize-start')} />}
+                {piece.isFirst && <><strong>{segment.title}</strong>{(displayEnd - displayStart) >= 20 && <span>{formatMinute(displayStart)}–{formatMinute(displayEnd)}</span>}</>}
+                {piece.isLast && <span className="resize-handle end" aria-hidden="true" onPointerDown={event => startBlockDrag(event, segment, 'resize-end')} />}
               </button>
-            );
+            ));
           })}
 
           {dragPreview && (
-            <div className="drag-preview" style={{
-              top: `${(dragPreview.start - rangeStart) * pixelsPerMinute}px`,
-              height: `${Math.max(28, (dragPreview.end - dragPreview.start) * pixelsPerMinute)}px`
-            }}>
-              {formatMinute(dragPreview.start)} – {formatMinute(dragPreview.end)}
-            </div>
+            matrixPieces(dragPreview.start, dragPreview.end).map(piece => (
+              <div className="drag-preview matrix-selection" key={piece.row} style={matrixPieceStyle(piece)}>
+                {piece.isFirst && `${formatMinute(dragPreview.start)} – ${formatMinute(dragPreview.end)}`}
+              </div>
+            ))
           )}
 
           {isToday && nowMinute >= rangeStart && nowMinute <= rangeEnd && (
-            <div className="now-line" style={{ top: `${(nowMinute - rangeStart) * pixelsPerMinute}px` }}><span>{formatMinute(nowMinute)}</span></div>
+            <div className="now-line" style={{ top: `${((nowMinute - rangeStart) / 60) * hourHeight}px` }}><span>{formatMinute(nowMinute)}</span></div>
           )}
 
-          {daySegments.length === 0 && !dragPreview && (
-            <div className="timeline-empty">
-              <Sparkles />
-              <strong>여유로운 하루예요</strong>
-              <span>빈 시간을 길게 누르고 드래그해 계획해 보세요.</span>
-            </div>
-          )}
         </div>
       </div>
     </section>
