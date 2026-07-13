@@ -61,8 +61,8 @@ svg { width: 22px; height: 22px; stroke-width: 1.9; }
 
 .day-screen { padding-left: 0; padding-right: 0; padding-bottom: 0; }
 .day-header { padding: 0 16px; }
-.timeline-scroll { max-width: 920px; height: calc(100vh - 174px - env(safe-area-inset-top)); margin: 0 auto; overflow: auto; background: var(--card); border-radius: 28px 28px 0 0; box-shadow: 0 -4px 28px rgba(35,42,58,.04); scrollbar-width: thin; }
-.timeline-grid { position: relative; min-height: 680px; margin: 18px 12px 28px; touch-action: pan-y; user-select: none; }
+.timeline-scroll { max-width: 920px; height: calc(100vh - 174px - env(safe-area-inset-top)); margin: 0 auto; overflow: auto; overscroll-behavior: contain; background: var(--card); border-radius: 28px 28px 0 0; box-shadow: 0 -4px 28px rgba(35,42,58,.04); scrollbar-width: thin; }
+.timeline-grid { position: relative; min-height: 680px; margin: 18px 12px 28px; touch-action: none; user-select: none; }
 .hour-line { position: absolute; left: 0; right: 0; height: 1px; border-top: 1px solid rgba(60,60,67,.1); pointer-events: none; }
 .hour-line::after { content: ''; position: absolute; left: 56px; right: 0; top: 50%; border-top: 1px dashed rgba(60,60,67,.055); transform: translateY(30px); }
 .hour-line span { position: absolute; left: 0; top: -8px; width: 47px; color: #9a9aa2; text-align: right; font-size: 12px; font-variant-numeric: tabular-nums; }

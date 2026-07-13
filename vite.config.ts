@@ -5,18 +5,19 @@ import { fileURLToPath } from 'node:url';
 
 export default defineConfig(({ command, mode }) => {
   const isAndroid = mode === 'android';
+  const isTest = mode === 'test';
   const base = command === 'serve' ? '/' : isAndroid ? './' : '/daybird/';
 
   return {
     base,
-    resolve: isAndroid ? {
+    resolve: isAndroid || isTest ? {
       alias: {
         'virtual:pwa-register': fileURLToPath(new URL('./src/lib/pwa-stub.ts', import.meta.url))
       }
     } : undefined,
     plugins: [
       react(),
-      ...(!isAndroid ? VitePWA({
+      ...(!isAndroid && !isTest ? VitePWA({
         registerType: 'prompt',
         includeAssets: ['icons/daybird-192.png', 'icons/daybird-512.png', 'og.png'],
         manifest: {
