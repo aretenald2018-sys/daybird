@@ -72,12 +72,12 @@ describe('DayView touch gestures', () => {
     const blocks = Array.from(container.querySelectorAll<HTMLElement>('.matrix-event.stacked'));
 
     expect(blocks).toHaveLength(2);
-    expect(blocks.map(block => block.style.height)).toEqual(['24px', '24px']);
-    expect(blocks.map(block => block.style.top)).toEqual(['450px', '476px']);
+    expect(blocks.map(block => block.style.height)).toEqual(['20px', '20px']);
+    expect(blocks.map(block => block.style.top)).toEqual(['386px', '408px']);
     expect(blocks[1]?.style.left).not.toBe(blocks[0]?.style.left);
   });
 
-  it('creates a new schedule when dragging immediately from an existing stacked block', () => {
+  it('cancels an early horizontal block drag instead of creating or moving a schedule', () => {
     vi.useFakeTimers();
     const onAdd = vi.fn();
     const onEdit = vi.fn();
@@ -93,12 +93,43 @@ describe('DayView touch gestures', () => {
     expect(block).not.toBeNull();
     setMatrixBounds(grid!);
 
-    fireEvent.pointerDown(block!, { pointerId: 10, pointerType: 'touch', clientX: 70, clientY: 450, button: 0 });
-    fireEvent.pointerMove(block!, { pointerId: 10, pointerType: 'touch', clientX: 95, clientY: 450 });
-    fireEvent.pointerUp(block!, { pointerId: 10, pointerType: 'touch', clientX: 95, clientY: 450 });
+    fireEvent.pointerDown(block!, { pointerId: 10, pointerType: 'touch', clientX: 70, clientY: 388, button: 0 });
+    fireEvent.pointerMove(block!, { pointerId: 10, pointerType: 'touch', clientX: 95, clientY: 388 });
+    fireEvent.pointerUp(block!, { pointerId: 10, pointerType: 'touch', clientX: 95, clientY: 388 });
     fireEvent.click(block!);
 
-    expect(onAdd).toHaveBeenLastCalledWith(840, 15);
+    expect(onAdd).not.toHaveBeenCalled();
+    expect(onMove).not.toHaveBeenCalled();
+    expect(onEdit).not.toHaveBeenCalled();
+  });
+
+  it('scrolls the timeline when a block gesture moves vertically before the long press', () => {
+    vi.useFakeTimers();
+    const onAdd = vi.fn();
+    const onEdit = vi.fn();
+    const onMove = vi.fn(async () => undefined);
+    const occurrence: ScheduleOccurrence = {
+      key: 'scroll', seriesId: 'scroll', originalDate: '2026-07-13', date: '2026-07-13',
+      title: '스크롤 테스트', categoryId: 'work', startMinute: 14 * 60, durationMinute: 60, reminderMinute: null
+    };
+    const { container } = render(<DayView {...baseProps} occurrences={[occurrence]} onAdd={onAdd} onEdit={onEdit} onMove={onMove} />);
+    const grid = container.querySelector('.timeline-grid');
+    const scroller = container.querySelector<HTMLElement>('.timeline-scroll');
+    const block = container.querySelector<HTMLElement>('[aria-label^="스크롤 테스트,"]');
+    expect(grid).not.toBeNull();
+    expect(scroller).not.toBeNull();
+    expect(block).not.toBeNull();
+    setMatrixBounds(grid!);
+    const initialScrollTop = scroller?.scrollTop ?? 0;
+
+    fireEvent.pointerDown(block!, { pointerId: 14, pointerType: 'touch', clientX: 95, clientY: 390, button: 0 });
+    fireEvent.pointerMove(block!, { pointerId: 14, pointerType: 'touch', clientX: 95, clientY: 340 });
+    act(() => vi.advanceTimersByTime(450));
+    fireEvent.pointerUp(block!, { pointerId: 14, pointerType: 'touch', clientX: 95, clientY: 340 });
+    fireEvent.click(block!);
+
+    expect(scroller?.scrollTop).toBeCloseTo(initialScrollTop + 50);
+    expect(onAdd).not.toHaveBeenCalled();
     expect(onMove).not.toHaveBeenCalled();
     expect(onEdit).not.toHaveBeenCalled();
   });
@@ -118,17 +149,17 @@ describe('DayView touch gestures', () => {
     expect(block).not.toBeNull();
     setMatrixBounds(grid!);
 
-    fireEvent.pointerDown(block!, { pointerId: 11, pointerType: 'touch', clientX: 95, clientY: 476, button: 0 });
+    fireEvent.pointerDown(block!, { pointerId: 11, pointerType: 'touch', clientX: 95, clientY: 410, button: 0 });
     act(() => vi.advanceTimersByTime(450));
-    fireEvent.pointerMove(block!, { pointerId: 11, pointerType: 'touch', clientX: 145, clientY: 476 });
-    fireEvent.pointerUp(block!, { pointerId: 11, pointerType: 'touch', clientX: 145, clientY: 476 });
+    fireEvent.pointerMove(block!, { pointerId: 11, pointerType: 'touch', clientX: 145, clientY: 410 });
+    fireEvent.pointerUp(block!, { pointerId: 11, pointerType: 'touch', clientX: 145, clientY: 410 });
 
     expect(onMove).toHaveBeenCalledTimes(1);
     expect(onMove).toHaveBeenLastCalledWith(expect.objectContaining({ key: 'second' }), 855, 45);
     expect(onAdd).not.toHaveBeenCalled();
   });
 
-  it('creates one 10-minute planning cell without pointer movement', () => {
+  it('creates a standard 30-minute event by tapping an empty time', () => {
     const onAdd = vi.fn();
     const { container } = render(<DayView {...baseProps} onAdd={onAdd} />);
     const grid = container.querySelector('.timeline-grid');
@@ -138,7 +169,7 @@ describe('DayView touch gestures', () => {
     fireEvent.pointerDown(grid!, { pointerId: 9, pointerType: 'mouse', clientX: 80, clientY: 120, button: 0 });
     fireEvent.pointerUp(grid!, { pointerId: 9, pointerType: 'mouse', clientX: 80, clientY: 120 });
 
-    expect(onAdd).toHaveBeenLastCalledWith(480, 10);
+    expect(onAdd).toHaveBeenLastCalledWith(480, 30);
   });
 
   it('creates a block after a touch long-press and drag', () => {
@@ -151,12 +182,39 @@ describe('DayView touch gestures', () => {
     setMatrixBounds(grid!);
 
     fireEvent.pointerDown(grid!, { pointerId: 1, pointerType: 'touch', clientX: 80, clientY: 120, button: 0 });
-    act(() => vi.advanceTimersByTime(300));
+    act(() => vi.advanceTimersByTime(400));
     fireEvent.pointerMove(grid!, { pointerId: 1, pointerType: 'touch', clientX: 165, clientY: 120 });
     fireEvent.pointerUp(grid!, { pointerId: 1, pointerType: 'touch', clientX: 165, clientY: 120 });
 
     expect(onAdd).toHaveBeenCalledTimes(1);
     expect(onAdd).toHaveBeenLastCalledWith(480, 30);
+  });
+
+  it('reveals resize handles after a long press and resizes with a direct handle drag', () => {
+    vi.useFakeTimers();
+    const onMove = vi.fn(async () => undefined);
+    const occurrence: ScheduleOccurrence = {
+      key: 'resize', seriesId: 'resize', originalDate: '2026-07-13', date: '2026-07-13',
+      title: '길이 조절', categoryId: 'work', startMinute: 14 * 60 + 5, durationMinute: 45, reminderMinute: null
+    };
+    const { container } = render(<DayView {...baseProps} occurrences={[occurrence]} onAdd={vi.fn()} onMove={onMove} />);
+    const grid = container.querySelector('.timeline-grid');
+    const block = container.querySelector<HTMLElement>('[aria-label^="길이 조절,"]');
+    expect(grid).not.toBeNull();
+    expect(block).not.toBeNull();
+    setMatrixBounds(grid!);
+
+    fireEvent.pointerDown(block!, { pointerId: 12, pointerType: 'touch', clientX: 95, clientY: 390, button: 0 });
+    act(() => vi.advanceTimersByTime(450));
+    fireEvent.pointerUp(block!, { pointerId: 12, pointerType: 'touch', clientX: 95, clientY: 390 });
+    const endHandle = container.querySelector<HTMLElement>('.resize-handle.end');
+    expect(endHandle).not.toBeNull();
+
+    fireEvent.pointerDown(endHandle!, { pointerId: 13, pointerType: 'touch', clientX: 310, clientY: 390, button: 0 });
+    fireEvent.pointerMove(endHandle!, { pointerId: 13, pointerType: 'touch', clientX: 340, clientY: 390 });
+    fireEvent.pointerUp(endHandle!, { pointerId: 13, pointerType: 'touch', clientX: 340, clientY: 390 });
+
+    expect(onMove).toHaveBeenLastCalledWith(expect.objectContaining({ key: 'resize' }), 845, 55);
   });
 
   it('continues a cell selection into the next hour row', () => {

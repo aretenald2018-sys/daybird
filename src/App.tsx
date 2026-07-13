@@ -67,7 +67,9 @@ const TIME_GRID_SNAP_MINUTE = 5;
 const TIME_MATRIX_COLUMNS = 6;
 const TIME_GRID_GUTTER = 64;
 const BLOCK_MOVE_LONG_PRESS_MS = 420;
-const POINTER_DRAG_THRESHOLD = 7;
+const EMPTY_CREATE_LONG_PRESS_MS = 360;
+const DEFAULT_EVENT_DURATION_MINUTE = 30;
+const POINTER_DRAG_THRESHOLD = 10;
 const CLICK_SUPPRESS_MS = 700;
 
 const EMPTY_SNAPSHOT: DayBirdSnapshot = {
@@ -324,7 +326,7 @@ export function DayView({ date, settings, categories, occurrences, onDateChange,
 }) {
   const scrollRef = useRef<HTMLDivElement>(null);
   const gridRef = useRef<HTMLDivElement>(null);
-  const hourHeight = settings.blockDensity === 'compact' ? 42 : 56;
+  const hourHeight = settings.blockDensity === 'compact' ? 38 : 48;
   const startMinute = settings.dayStartHour * 60;
   const endMinute = settings.dayEndHour * 60;
   const daySegments = useMemo(() => segmentsForDate(occurrences, date), [date, occurrences]);
@@ -339,7 +341,7 @@ export function DayView({ date, settings, categories, occurrences, onDateChange,
     startY: number;
     startMinute: number;
     startScrollTop: number;
-    state: 'pending' | 'dragging' | 'scrolling';
+    state: 'pending' | 'creating' | 'scrolling' | 'cancelled';
     longPressTimer: number | null;
   } | null>(null);
   const [dragPreview, setDragPreview] = useState<{ start: number; end: number } | null>(null);
@@ -348,17 +350,19 @@ export function DayView({ date, settings, categories, occurrences, onDateChange,
     pointerId: number;
     startX: number;
     startY: number;
-    startMinute: number;
     anchorMinute: number;
     occurrence: ScheduleOccurrence;
     originalStart: number;
     originalDuration: number;
     mode: 'move' | 'resize-start' | 'resize-end';
-    state: 'pending' | 'creating' | 'moving';
+    pointerType: string;
+    startScrollTop: number;
+    state: 'pending' | 'moving' | 'resizing' | 'scrolling' | 'cancelled';
     longPressTimer: number | null;
     changed: boolean;
   } | null>(null);
   const suppressClickUntilRef = useRef(0);
+  const [selectedBlockKey, setSelectedBlockKey] = useState<string | null>(null);
   const [blockPreview, setBlockPreview] = useState<{ key: string; start: number; duration: number } | null>(null);
   const blockPreviewRef = useRef<{ key: string; start: number; duration: number } | null>(null);
 
@@ -441,6 +445,7 @@ export function DayView({ date, settings, categories, occurrences, onDateChange,
     if (event.button !== 0 || (event.target as HTMLElement).closest('.event-block')) return;
     const rect = event.currentTarget.getBoundingClientRect();
     if (event.clientX < rect.left + TIME_GRID_GUTTER) return;
+    setSelectedBlockKey(null);
     const minute = minuteAtPointer(event.clientX, event.clientY);
     safelyCapturePointer(event.currentTarget, event.pointerId);
     const isTouch = event.pointerType === 'touch';
@@ -450,20 +455,20 @@ export function DayView({ date, settings, categories, occurrences, onDateChange,
       startY: event.clientY,
       startMinute: minute,
       startScrollTop: scrollRef.current?.scrollTop ?? 0,
-      state: isTouch ? 'pending' as const : 'dragging' as const,
+      state: isTouch ? 'pending' as const : 'creating' as const,
       longPressTimer: null as number | null
     };
     dragRef.current = gesture;
     if (isTouch) {
       gesture.longPressTimer = window.setTimeout(() => {
         if (dragRef.current !== gesture || gesture.state !== 'pending') return;
-        gesture.state = 'dragging';
+        gesture.state = 'creating';
         gesture.longPressTimer = null;
-        updateDragPreview({ start: minute, end: minute + TIME_CELL_MINUTE });
+        updateDragPreview({ start: minute, end: minute + DEFAULT_EVENT_DURATION_MINUTE });
         void lightHaptic();
-      }, 280);
+      }, EMPTY_CREATE_LONG_PRESS_MS);
     } else {
-      updateDragPreview({ start: minute, end: minute + TIME_CELL_MINUTE });
+      updateDragPreview({ start: minute, end: minute + DEFAULT_EVENT_DURATION_MINUTE });
     }
   };
 
@@ -472,16 +477,17 @@ export function DayView({ date, settings, categories, occurrences, onDateChange,
     const gesture = dragRef.current;
     const verticalDelta = event.clientY - gesture.startY;
     const horizontalDelta = event.clientX - gesture.startX;
-    if (gesture.state === 'pending' && Math.abs(verticalDelta) > 6 && Math.abs(verticalDelta) >= Math.abs(horizontalDelta)) {
+    const distance = Math.hypot(horizontalDelta, verticalDelta);
+    if (gesture.state === 'pending' && distance >= POINTER_DRAG_THRESHOLD) {
       if (gesture.longPressTimer !== null) window.clearTimeout(gesture.longPressTimer);
       gesture.longPressTimer = null;
-      gesture.state = 'scrolling';
+      gesture.state = Math.abs(verticalDelta) >= Math.abs(horizontalDelta) ? 'scrolling' : 'cancelled';
     }
     if (gesture.state === 'scrolling') {
       if (scrollRef.current) scrollRef.current.scrollTop = gesture.startScrollTop - verticalDelta;
       return;
     }
-    if (gesture.state !== 'dragging') return;
+    if (gesture.state !== 'creating') return;
     const current = minuteAtPointer(event.clientX, event.clientY);
     updateDragPreview(current >= gesture.startMinute
       ? { start: gesture.startMinute, end: current + TIME_CELL_MINUTE }
@@ -492,8 +498,14 @@ export function DayView({ date, settings, categories, occurrences, onDateChange,
     const gesture = dragRef.current;
     if (!gesture || gesture.pointerId !== event.pointerId) return;
     const preview = dragPreviewRef.current;
-    const shouldCreate = gesture.state === 'dragging' && preview !== null;
+    const shouldCreate = gesture.state === 'creating' && preview !== null;
+    const shouldCreateDefault = gesture.state === 'pending';
     clearTimelineGesture();
+    if (shouldCreateDefault) {
+      void lightHaptic();
+      onAdd(gesture.startMinute, DEFAULT_EVENT_DURATION_MINUTE);
+      return;
+    }
     if (!shouldCreate || !preview) return;
     void lightHaptic();
     onAdd(preview.start, Math.max(TIME_CELL_MINUTE, preview.end - preview.start));
@@ -508,21 +520,29 @@ export function DayView({ date, settings, categories, occurrences, onDateChange,
       pointerId: event.pointerId,
       startX: event.clientX,
       startY: event.clientY,
-      startMinute: minute,
       anchorMinute: minute,
       occurrence,
       originalStart: occurrence.startMinute,
       originalDuration: occurrence.durationMinute,
       mode,
-      state: 'pending',
+      pointerType: event.pointerType,
+      startScrollTop: scrollRef.current?.scrollTop ?? 0,
+      state: mode === 'move' ? 'pending' : 'resizing',
       longPressTimer: null as number | null,
       changed: false
     };
     blockDragRef.current = gesture;
+    if (mode !== 'move') {
+      setSelectedBlockKey(occurrence.key);
+      updateBlockPreview({ key: occurrence.key, start: occurrence.startMinute, duration: occurrence.durationMinute });
+      return;
+    }
+    if (event.pointerType !== 'touch') return;
     gesture.longPressTimer = window.setTimeout(() => {
       if (blockDragRef.current !== gesture || gesture.state !== 'pending') return;
       gesture.state = 'moving';
       gesture.longPressTimer = null;
+      setSelectedBlockKey(occurrence.key);
       updateBlockPreview({ key: occurrence.key, start: occurrence.startMinute, duration: occurrence.durationMinute });
       void lightHaptic();
     }, BLOCK_MOVE_LONG_PRESS_MS);
@@ -531,26 +551,28 @@ export function DayView({ date, settings, categories, occurrences, onDateChange,
   const moveBlockDrag = (event: React.PointerEvent<HTMLElement>) => {
     const drag = blockDragRef.current;
     if (!drag || drag.pointerId !== event.pointerId) return;
-    const distance = Math.hypot(event.clientX - drag.startX, event.clientY - drag.startY);
+    const horizontalDelta = event.clientX - drag.startX;
+    const verticalDelta = event.clientY - drag.startY;
+    const distance = Math.hypot(horizontalDelta, verticalDelta);
     if (drag.state === 'pending') {
       if (distance < POINTER_DRAG_THRESHOLD) return;
       if (drag.longPressTimer !== null) window.clearTimeout(drag.longPressTimer);
       drag.longPressTimer = null;
-      drag.state = 'creating';
-      const current = minuteAtPointer(event.clientX, event.clientY);
-      updateDragPreview(current >= drag.startMinute
-        ? { start: drag.startMinute, end: current + TIME_CELL_MINUTE }
-        : { start: current, end: drag.startMinute + TIME_CELL_MINUTE });
+      if (drag.pointerType === 'touch') {
+        drag.state = Math.abs(verticalDelta) >= Math.abs(horizontalDelta) ? 'scrolling' : 'cancelled';
+        suppressClickUntilRef.current = Date.now() + CLICK_SUPPRESS_MS;
+        if (drag.state === 'scrolling' && scrollRef.current) scrollRef.current.scrollTop = drag.startScrollTop - verticalDelta;
+        return;
+      }
+      drag.state = 'moving';
+      setSelectedBlockKey(drag.occurrence.key);
+      updateBlockPreview({ key: drag.occurrence.key, start: drag.originalStart, duration: drag.originalDuration });
+    }
+    if (drag.state === 'scrolling') {
+      if (scrollRef.current) scrollRef.current.scrollTop = drag.startScrollTop - verticalDelta;
       return;
     }
-    if (drag.state === 'creating') {
-      const current = minuteAtPointer(event.clientX, event.clientY);
-      updateDragPreview(current >= drag.startMinute
-        ? { start: drag.startMinute, end: current + TIME_CELL_MINUTE }
-        : { start: current, end: drag.startMinute + TIME_CELL_MINUTE });
-      return;
-    }
-    if (drag.state !== 'moving') return;
+    if (drag.state !== 'moving' && drag.state !== 'resizing') return;
     const rawDelta = minuteAtPointer(event.clientX, event.clientY) - drag.anchorMinute;
     const delta = Math.round(rawDelta / TIME_GRID_SNAP_MINUTE) * TIME_GRID_SNAP_MINUTE;
     if (Math.abs(delta) >= TIME_GRID_SNAP_MINUTE) drag.changed = true;
@@ -572,18 +594,10 @@ export function DayView({ date, settings, categories, occurrences, onDateChange,
     const drag = blockDragRef.current;
     if (!drag || drag.pointerId !== event.pointerId) return;
     if (drag.longPressTimer !== null) window.clearTimeout(drag.longPressTimer);
-    const selection = dragPreviewRef.current;
     const preview = blockPreviewRef.current;
     blockDragRef.current = null;
-    updateDragPreview(null);
     updateBlockPreview(null);
-    if (drag.state === 'creating' && selection) {
-      suppressClickUntilRef.current = Date.now() + CLICK_SUPPRESS_MS;
-      void lightHaptic();
-      onAdd(selection.start, Math.max(TIME_CELL_MINUTE, selection.end - selection.start));
-      return;
-    }
-    if (drag.state !== 'moving') return;
+    if (drag.state !== 'moving' && drag.state !== 'resizing') return;
     suppressClickUntilRef.current = Date.now() + CLICK_SUPPRESS_MS;
     if (!drag.changed || !preview) return;
     void lightHaptic();
@@ -597,6 +611,8 @@ export function DayView({ date, settings, categories, occurrences, onDateChange,
     const target = Math.max(0, ((minute - rangeStart) / 60) * hourHeight - 220);
     scrollRef.current.scrollTop = target;
   }, [date, hourHeight, rangeStart]);
+
+  useEffect(() => setSelectedBlockKey(null), [date]);
 
   useEffect(() => () => {
     const timer = dragRef.current?.longPressTimer;
@@ -657,7 +673,7 @@ export function DayView({ date, settings, categories, occurrences, onDateChange,
                 key={`${segment.key}:${piece.row}`}
                 role="button"
                 tabIndex={0}
-                className={`event-block matrix-event${piece.isFirst ? ' starts-here' : ''}${piece.isLast ? ' ends-here' : ''}${segment.laneCount > 1 ? ' stacked' : ''}${segment.laneCount > 2 ? ' dense' : ''}`}
+                className={`event-block matrix-event${piece.isFirst ? ' starts-here' : ''}${piece.isLast ? ' ends-here' : ''}${segment.laneCount > 1 ? ' stacked' : ''}${segment.laneCount > 2 ? ' dense' : ''}${selectedBlockKey === segment.key ? ' selected' : ''}`}
                 style={{
                   ...matrixPieceStyle(piece, segment.lane, segment.laneCount),
                   '--event-color': category?.color ?? '#8D94A0',
@@ -672,15 +688,17 @@ export function DayView({ date, settings, categories, occurrences, onDateChange,
                 onContextMenu={event => event.preventDefault()}
                 onClick={() => {
                   if (Date.now() < suppressClickUntilRef.current) return;
+                  setSelectedBlockKey(null);
                   onEdit(segment);
                 }}
                 onKeyDown={event => {
                   if (event.key !== 'Enter' && event.key !== ' ') return;
                   event.preventDefault();
+                  setSelectedBlockKey(null);
                   onEdit(segment);
                 }}
               >
-                {piece.isFirst && <span className="resize-handle start" aria-hidden="true" onPointerDown={event => startBlockDrag(event, segment, 'resize-start')} />}
+                {piece.isFirst && selectedBlockKey === segment.key && <span className="resize-handle start" aria-hidden="true" onPointerDown={event => startBlockDrag(event, segment, 'resize-start')} />}
                 {piece.isFirst && <>
                   <strong>{segment.title}</strong>
                   {!!details.length && (
@@ -704,9 +722,9 @@ export function DayView({ date, settings, categories, occurrences, onDateChange,
                       ) : <span className="event-detail-bullet" key={detail.index}>• {detail.text}</span>)}
                     </span>
                   )}
-                  {segment.laneCount === 1 && (displayEnd - displayStart) >= 20 && <span className="event-time">{formatMinute(displayStart)}–{formatMinute(displayEnd)}</span>}
+                  {segment.laneCount === 1 && details.length === 0 && (displayEnd - displayStart) >= 20 && <span className="event-time">{formatMinute(displayStart)}–{formatMinute(displayEnd)}</span>}
                 </>}
-                {piece.isLast && <span className="resize-handle end" aria-hidden="true" onPointerDown={event => startBlockDrag(event, segment, 'resize-end')} />}
+                {piece.isLast && selectedBlockKey === segment.key && <span className="resize-handle end" aria-hidden="true" onPointerDown={event => startBlockDrag(event, segment, 'resize-end')} />}
               </div>
             ));
           })}
