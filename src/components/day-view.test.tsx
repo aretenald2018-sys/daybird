@@ -38,12 +38,25 @@ afterEach(() => {
 });
 
 describe('DayView touch gestures', () => {
+  it('creates one 10-minute planning cell without pointer movement', () => {
+    const onAdd = vi.fn();
+    const { container } = render(<DayView {...baseProps} onAdd={onAdd} />);
+    const grid = container.querySelector('.timeline-grid');
+    expect(grid).not.toBeNull();
+
+    fireEvent.pointerDown(grid!, { pointerId: 9, pointerType: 'mouse', clientY: 120, button: 0 });
+    fireEvent.pointerUp(grid!, { pointerId: 9, pointerType: 'mouse', clientY: 120 });
+
+    expect(onAdd).toHaveBeenLastCalledWith(expect.any(Number), 10);
+  });
+
   it('creates a block after a touch long-press and drag', () => {
     vi.useFakeTimers();
     const onAdd = vi.fn();
     const { container } = render(<DayView {...baseProps} onAdd={onAdd} />);
     const grid = container.querySelector('.timeline-grid');
     expect(grid).not.toBeNull();
+    expect(container.querySelectorAll('.timeline-cell')).toHaveLength(108);
 
     fireEvent.pointerDown(grid!, { pointerId: 1, pointerType: 'touch', clientY: 120, button: 0 });
     act(() => vi.advanceTimersByTime(300));
@@ -51,6 +64,7 @@ describe('DayView touch gestures', () => {
     fireEvent.pointerUp(grid!, { pointerId: 1, pointerType: 'touch', clientY: 180 });
 
     expect(onAdd).toHaveBeenCalledTimes(1);
+    expect(onAdd).toHaveBeenLastCalledWith(expect.any(Number), 60);
   });
 
   it('treats an early vertical move as scrolling instead of creating an event', () => {

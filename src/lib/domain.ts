@@ -88,7 +88,7 @@ export const DEFAULT_SETTINGS: AppSettings = {
   id: 'app',
   dayStartHour: 6,
   dayEndHour: 24,
-  snapMinute: 5,
+  snapMinute: 10,
   fontScale: 'medium',
   blockDensity: 'comfortable',
   textAlign: 'left',

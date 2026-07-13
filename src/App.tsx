@@ -59,6 +59,7 @@ import {
 
 type Tab = 'day' | 'week' | 'focus' | 'settings';
 type Toast = { id: number; message: string };
+const TIME_CELL_MINUTE = 10;
 
 const EMPTY_SNAPSHOT: DayBirdSnapshot = {
   categories: [], schedules: [], overrides: [], focusSessions: [], settings: DEFAULT_SETTINGS
@@ -292,9 +293,10 @@ export function DayView({ date, settings, categories, occurrences, onDateChange,
   const startMinute = settings.dayStartHour * 60;
   const endMinute = settings.dayEndHour * 60;
   const daySegments = useMemo(() => segmentsForDate(occurrences, date), [date, occurrences]);
-  const rangeStart = Math.min(startMinute, ...daySegments.map(item => item.segmentStart));
-  const rangeEnd = Math.max(endMinute, ...daySegments.map(item => item.segmentEnd));
+  const rangeStart = Math.floor(Math.min(startMinute, ...daySegments.map(item => item.segmentStart)) / 60) * 60;
+  const rangeEnd = Math.ceil(Math.max(endMinute, ...daySegments.map(item => item.segmentEnd)) / 60) * 60;
   const hours = Array.from({ length: Math.ceil((rangeEnd - rangeStart) / 60) + 1 }, (_, index) => Math.floor(rangeStart / 60) + index);
+  const timeCells = Array.from({ length: (rangeEnd - rangeStart) / TIME_CELL_MINUTE }, (_, index) => rangeStart + index * TIME_CELL_MINUTE);
   const categoryMap = new Map(categories.map(category => [category.id, category]));
   const dragRef = useRef<{
     pointerId: number;
@@ -347,7 +349,7 @@ export function DayView({ date, settings, categories, occurrences, onDateChange,
   const handlePointerDown = (event: React.PointerEvent<HTMLDivElement>) => {
     if (event.button !== 0 || (event.target as HTMLElement).closest('.event-block')) return;
     const rect = event.currentTarget.getBoundingClientRect();
-    const minute = snapMinute(rangeStart + (event.clientY - rect.top) / pixelsPerMinute, settings.snapMinute);
+    const minute = snapMinute(rangeStart + (event.clientY - rect.top) / pixelsPerMinute, TIME_CELL_MINUTE);
     safelyCapturePointer(event.currentTarget, event.pointerId);
     const isTouch = event.pointerType === 'touch';
     const gesture = {
@@ -364,11 +366,11 @@ export function DayView({ date, settings, categories, occurrences, onDateChange,
         if (dragRef.current !== gesture || gesture.state !== 'pending') return;
         gesture.state = 'dragging';
         gesture.longPressTimer = null;
-        updateDragPreview({ start: minute, end: minute + Math.max(30, settings.snapMinute) });
+        updateDragPreview({ start: minute, end: minute + TIME_CELL_MINUTE });
         void lightHaptic();
       }, 280);
     } else {
-      updateDragPreview({ start: minute, end: minute + Math.max(30, settings.snapMinute) });
+      updateDragPreview({ start: minute, end: minute + TIME_CELL_MINUTE });
     }
   };
 
@@ -387,10 +389,10 @@ export function DayView({ date, settings, categories, occurrences, onDateChange,
     }
     if (gesture.state !== 'dragging') return;
     const delta = pixelDelta / pixelsPerMinute;
-    const current = snapMinute(gesture.startMinute + delta, settings.snapMinute);
+    const current = snapMinute(gesture.startMinute + delta, TIME_CELL_MINUTE);
     updateDragPreview({
       start: Math.min(dragRef.current.startMinute, current),
-      end: Math.max(dragRef.current.startMinute + settings.snapMinute, current)
+      end: Math.max(dragRef.current.startMinute + TIME_CELL_MINUTE, current)
     });
   };
 
@@ -402,7 +404,7 @@ export function DayView({ date, settings, categories, occurrences, onDateChange,
     clearTimelineGesture();
     if (!shouldCreate || !preview) return;
     void lightHaptic();
-    onAdd(preview.start, Math.max(settings.snapMinute, preview.end - preview.start));
+    onAdd(preview.start, Math.max(TIME_CELL_MINUTE, preview.end - preview.start));
   };
 
   const startBlockDrag = (event: React.PointerEvent<HTMLElement>, occurrence: ScheduleOccurrence, mode: 'move' | 'resize-start' | 'resize-end') => {
@@ -487,13 +489,19 @@ export function DayView({ date, settings, categories, occurrences, onDateChange,
       <div className="timeline-scroll" ref={scrollRef}>
         <div
           className="timeline-grid"
-          style={{ height: `${(rangeEnd - rangeStart) * pixelsPerMinute}px` }}
+          style={{
+            height: `${(rangeEnd - rangeStart) * pixelsPerMinute}px`,
+            '--time-cell-height': `${TIME_CELL_MINUTE * pixelsPerMinute}px`
+          } as React.CSSProperties}
           onPointerDown={handlePointerDown}
           onPointerMove={handlePointerMove}
           onPointerUp={handlePointerUp}
           onPointerCancel={clearTimelineGesture}
           onContextMenu={event => event.preventDefault()}
         >
+          <div className="time-cell-grid" aria-hidden="true">
+            {timeCells.map(minute => <span className={minute % 60 === 0 ? 'timeline-cell hour-cell' : 'timeline-cell'} key={minute} />)}
+          </div>
           {hours.map(hour => (
             <div className="hour-line" key={hour} style={{ top: `${(hour * 60 - rangeStart) * pixelsPerMinute}px` }}>
               <span>{hour === 24 ? '24:00' : `${String(hour).padStart(2, '0')}:00`}</span>
@@ -971,7 +979,7 @@ function SettingsView({ snapshot, installPrompt, onInstalled, onRefresh, notify 
       <div className="settings-card">
         <label><span>시작 시간</span><select value={snapshot.settings.dayStartHour} onChange={event => void updateSettings({ dayStartHour: Number(event.target.value) })}>{Array.from({ length: 13 }, (_, value) => <option key={value} value={value}>{String(value).padStart(2, '0')}:00</option>)}</select></label>
         <label><span>종료 시간</span><select value={snapshot.settings.dayEndHour} onChange={event => void updateSettings({ dayEndHour: Number(event.target.value) })}>{Array.from({ length: 13 }, (_, index) => index + 12).map(value => <option key={value} value={value}>{value}:00</option>)}</select></label>
-        <label><span>시간 스냅</span><select value={snapshot.settings.snapMinute} onChange={event => void updateSettings({ snapMinute: Number(event.target.value) as AppSettings['snapMinute'] })}>{[5, 10, 15, 30].map(value => <option key={value} value={value}>{value}분</option>)}</select></label>
+        <label><span>일정 이동 스냅</span><select value={snapshot.settings.snapMinute} onChange={event => void updateSettings({ snapMinute: Number(event.target.value) as AppSettings['snapMinute'] })}>{[5, 10, 15, 30].map(value => <option key={value} value={value}>{value}분</option>)}</select></label>
         <label><span>블록 크기</span><select value={snapshot.settings.blockDensity} onChange={event => void updateSettings({ blockDensity: event.target.value as AppSettings['blockDensity'] })}><option value="comfortable">여유롭게</option><option value="compact">작게</option></select></label>
         <label><span>글자 크기</span><select value={snapshot.settings.fontScale} onChange={event => void updateSettings({ fontScale: event.target.value as AppSettings['fontScale'] })}><option value="small">작게</option><option value="medium">보통</option><option value="large">크게</option></select></label>
         <label><span>텍스트 위치</span><select value={snapshot.settings.textAlign} onChange={event => void updateSettings({ textAlign: event.target.value as AppSettings['textAlign'] })}><option value="left">왼쪽</option><option value="center">가운데</option></select></label>

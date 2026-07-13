@@ -63,8 +63,10 @@ svg { width: 22px; height: 22px; stroke-width: 1.9; }
 .day-header { padding: 0 16px; }
 .timeline-scroll { max-width: 920px; height: calc(100vh - 174px - env(safe-area-inset-top)); margin: 0 auto; overflow: auto; overscroll-behavior: contain; background: var(--card); border-radius: 28px 28px 0 0; box-shadow: 0 -4px 28px rgba(35,42,58,.04); scrollbar-width: thin; }
 .timeline-grid { position: relative; min-height: 680px; margin: 18px 12px 28px; touch-action: none; user-select: none; }
-.hour-line { position: absolute; left: 0; right: 0; height: 1px; border-top: 1px solid rgba(60,60,67,.1); pointer-events: none; }
-.hour-line::after { content: ''; position: absolute; left: 56px; right: 0; top: 50%; border-top: 1px dashed rgba(60,60,67,.055); transform: translateY(30px); }
+.time-cell-grid { position: absolute; z-index: 0; top: 0; right: 0; left: 56px; display: grid; grid-auto-rows: var(--time-cell-height); width: calc(100% - 56px); pointer-events: none; }
+.timeline-cell { border-top: 1px dashed rgba(60,60,67,.07); }
+.timeline-cell.hour-cell { border-top-color: rgba(60,60,67,.1); border-top-style: solid; }
+.hour-line { position: absolute; z-index: 1; left: 0; right: 0; height: 1px; border-top: 1px solid rgba(60,60,67,.1); pointer-events: none; }
 .hour-line span { position: absolute; left: 0; top: -8px; width: 47px; color: #9a9aa2; text-align: right; font-size: 12px; font-variant-numeric: tabular-nums; }
 .event-block { position: absolute; z-index: 5; overflow: hidden; padding: 7px 8px 6px 11px; color: #24252a; border: 0; border-left: 3px solid var(--event-color); border-radius: 7px 12px 12px 7px; background: var(--event-bg); box-shadow: inset 0 0 0 1px rgba(255,255,255,.46); cursor: grab; touch-action: none; }
 .event-block:active { cursor: grabbing; }
