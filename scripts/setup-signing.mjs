@@ -22,6 +22,9 @@ if (fs.existsSync(credentialsPath) && fs.existsSync(keystorePath)) {
   credentials = { keyAlias: 'daybird-release', storePassword: password, keyPassword: password };
   const env = { ...process.env, DAYBIRD_GENERATED_KEY_PASSWORD: password };
   const result = spawnSync(keytool, [
+    '-J-Dfile.encoding=UTF-8',
+    '-J-Duser.language=en',
+    '-J-Duser.country=US',
     '-genkeypair',
     '-v',
     '-keystore', keystorePath,
