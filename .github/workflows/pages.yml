@@ -1,0 +1,70 @@
+name: Build APK and deploy Pages
+
+on:
+  push:
+    branches: [main]
+  workflow_dispatch:
+
+permissions:
+  contents: read
+  pages: write
+  id-token: write
+
+concurrency:
+  group: pages
+  cancel-in-progress: false
+
+jobs:
+  build:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 22
+          cache: npm
+      - uses: actions/setup-java@v4
+        with:
+          distribution: temurin
+          java-version: 17
+      - uses: android-actions/setup-android@v3
+      - name: Install Android SDK 36
+        run: sdkmanager "platforms;android-36" "build-tools;35.0.0"
+      - run: npm ci
+      - run: npm run lint && npm run typecheck && npm run test
+      - name: Build Android web assets
+        run: npm run cap:sync
+      - name: Restore signing key
+        env:
+          KEYSTORE_BASE64: ${{ secrets.ANDROID_KEYSTORE_BASE64 }}
+        run: echo "$KEYSTORE_BASE64" | base64 --decode > "$RUNNER_TEMP/daybird-release.keystore"
+      - name: Build signed release APK
+        env:
+          DAYBIRD_KEYSTORE_PATH: ${{ runner.temp }}/daybird-release.keystore
+          DAYBIRD_KEYSTORE_PASSWORD: ${{ secrets.ANDROID_KEYSTORE_PASSWORD }}
+          DAYBIRD_KEY_ALIAS: ${{ secrets.ANDROID_KEY_ALIAS }}
+          DAYBIRD_KEY_PASSWORD: ${{ secrets.ANDROID_KEY_PASSWORD }}
+          DAYBIRD_VERSION_CODE: ${{ github.run_number }}
+          DAYBIRD_VERSION_NAME: 0.1.${{ github.run_number }}
+        run: ./android/gradlew -p android assembleRelease
+      - name: Build Pages PWA
+        run: npm run build
+      - name: Add APK to Pages
+        env:
+          DAYBIRD_VERSION_CODE: ${{ github.run_number }}
+          DAYBIRD_VERSION_NAME: 0.1.${{ github.run_number }}
+        run: node scripts/stage-release.mjs android/app/build/outputs/apk/release/app-release.apk
+      - uses: actions/configure-pages@v5
+      - uses: actions/upload-pages-artifact@v4
+        with:
+          path: dist
+  deploy:
+    needs: build
+    runs-on: ubuntu-latest
+    environment:
+      name: github-pages
+      url: ${{ steps.deployment.outputs.page_url }}
+    steps:
+      - name: Deploy
+        id: deployment
+        uses: actions/deploy-pages@v4

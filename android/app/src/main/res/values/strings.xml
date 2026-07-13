@@ -1,0 +1,7 @@
+<?xml version='1.0' encoding='utf-8'?>
+<resources>
+    <string name="app_name">DayBird</string>
+    <string name="title_activity_main">DayBird</string>
+    <string name="package_name">com.aretenald.daybird</string>
+    <string name="custom_url_scheme">com.aretenald.daybird</string>
+</resources>

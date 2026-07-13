@@ -1,0 +1,12 @@
+node_modules/
+dist/
+.android-signing/
+*.jks
+*.keystore
+android/.gradle/
+android/app/build/
+android/build/
+.idea/
+*.iml
+*.tsbuildinfo
+.DS_Store
