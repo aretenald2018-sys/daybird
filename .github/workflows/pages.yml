@@ -10,6 +10,9 @@ permissions:
   pages: write
   id-token: write
 
+env:
+  FORCE_JAVASCRIPT_ACTIONS_TO_NODE24: true
+
 concurrency:
   group: pages
   cancel-in-progress: false
@@ -46,7 +49,7 @@ jobs:
           DAYBIRD_KEY_PASSWORD: ${{ secrets.ANDROID_KEY_PASSWORD }}
           DAYBIRD_VERSION_CODE: ${{ github.run_number }}
           DAYBIRD_VERSION_NAME: 0.1.${{ github.run_number }}
-        run: ./android/gradlew -p android assembleRelease
+        run: chmod +x android/gradlew && ./android/gradlew -p android assembleRelease
       - name: Build Pages PWA
         run: npm run build
       - name: Add APK to Pages
