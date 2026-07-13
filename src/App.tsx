@@ -61,6 +61,9 @@ const TIME_CELL_MINUTE = 10;
 const TIME_GRID_SNAP_MINUTE = 5;
 const TIME_MATRIX_COLUMNS = 6;
 const TIME_GRID_GUTTER = 64;
+const BLOCK_MOVE_LONG_PRESS_MS = 420;
+const POINTER_DRAG_THRESHOLD = 7;
+const CLICK_SUPPRESS_MS = 700;
 
 const EMPTY_SNAPSHOT: DayBirdSnapshot = {
   categories: [], schedules: [], overrides: [], focusSessions: [], settings: DEFAULT_SETTINGS
@@ -314,14 +317,19 @@ export function DayView({ date, settings, categories, occurrences, onDateChange,
   const dragPreviewRef = useRef<{ start: number; end: number } | null>(null);
   const blockDragRef = useRef<{
     pointerId: number;
+    startX: number;
+    startY: number;
+    startMinute: number;
     anchorMinute: number;
     occurrence: ScheduleOccurrence;
     originalStart: number;
     originalDuration: number;
     mode: 'move' | 'resize-start' | 'resize-end';
+    state: 'pending' | 'creating' | 'moving';
+    longPressTimer: number | null;
     changed: boolean;
   } | null>(null);
-  const suppressClickRef = useRef(false);
+  const suppressClickUntilRef = useRef(0);
   const [blockPreview, setBlockPreview] = useState<{ key: string; start: number; duration: number } | null>(null);
   const blockPreviewRef = useRef<{ key: string; start: number; duration: number } | null>(null);
 
@@ -392,6 +400,14 @@ export function DayView({ date, settings, categories, occurrences, onDateChange,
     updateDragPreview(null);
   };
 
+  const clearBlockGesture = () => {
+    const timer = blockDragRef.current?.longPressTimer;
+    if (timer != null) window.clearTimeout(timer);
+    blockDragRef.current = null;
+    updateBlockPreview(null);
+    updateDragPreview(null);
+  };
+
   const handlePointerDown = (event: React.PointerEvent<HTMLDivElement>) => {
     if (event.button !== 0 || (event.target as HTMLElement).closest('.event-block')) return;
     const rect = event.currentTarget.getBoundingClientRect();
@@ -458,21 +474,54 @@ export function DayView({ date, settings, categories, occurrences, onDateChange,
     if (event.button !== 0) return;
     event.stopPropagation();
     safelyCapturePointer(event.currentTarget, event.pointerId);
-    blockDragRef.current = {
+    const minute = minuteAtPointer(event.clientX, event.clientY);
+    const gesture: NonNullable<typeof blockDragRef.current> = {
       pointerId: event.pointerId,
-      anchorMinute: minuteAtPointer(event.clientX, event.clientY),
+      startX: event.clientX,
+      startY: event.clientY,
+      startMinute: minute,
+      anchorMinute: minute,
       occurrence,
       originalStart: occurrence.startMinute,
       originalDuration: occurrence.durationMinute,
       mode,
+      state: 'pending',
+      longPressTimer: null as number | null,
       changed: false
     };
-    updateBlockPreview({ key: occurrence.key, start: occurrence.startMinute, duration: occurrence.durationMinute });
+    blockDragRef.current = gesture;
+    gesture.longPressTimer = window.setTimeout(() => {
+      if (blockDragRef.current !== gesture || gesture.state !== 'pending') return;
+      gesture.state = 'moving';
+      gesture.longPressTimer = null;
+      updateBlockPreview({ key: occurrence.key, start: occurrence.startMinute, duration: occurrence.durationMinute });
+      void lightHaptic();
+    }, BLOCK_MOVE_LONG_PRESS_MS);
   };
 
   const moveBlockDrag = (event: React.PointerEvent<HTMLElement>) => {
     const drag = blockDragRef.current;
     if (!drag || drag.pointerId !== event.pointerId) return;
+    const distance = Math.hypot(event.clientX - drag.startX, event.clientY - drag.startY);
+    if (drag.state === 'pending') {
+      if (distance < POINTER_DRAG_THRESHOLD) return;
+      if (drag.longPressTimer !== null) window.clearTimeout(drag.longPressTimer);
+      drag.longPressTimer = null;
+      drag.state = 'creating';
+      const current = minuteAtPointer(event.clientX, event.clientY);
+      updateDragPreview(current >= drag.startMinute
+        ? { start: drag.startMinute, end: current + TIME_CELL_MINUTE }
+        : { start: current, end: drag.startMinute + TIME_CELL_MINUTE });
+      return;
+    }
+    if (drag.state === 'creating') {
+      const current = minuteAtPointer(event.clientX, event.clientY);
+      updateDragPreview(current >= drag.startMinute
+        ? { start: drag.startMinute, end: current + TIME_CELL_MINUTE }
+        : { start: current, end: drag.startMinute + TIME_CELL_MINUTE });
+      return;
+    }
+    if (drag.state !== 'moving') return;
     const rawDelta = minuteAtPointer(event.clientX, event.clientY) - drag.anchorMinute;
     const delta = Math.round(rawDelta / TIME_GRID_SNAP_MINUTE) * TIME_GRID_SNAP_MINUTE;
     if (Math.abs(delta) >= TIME_GRID_SNAP_MINUTE) drag.changed = true;
@@ -493,11 +542,21 @@ export function DayView({ date, settings, categories, occurrences, onDateChange,
   const endBlockDrag = (event: React.PointerEvent<HTMLElement>) => {
     const drag = blockDragRef.current;
     if (!drag || drag.pointerId !== event.pointerId) return;
-    blockDragRef.current = null;
+    if (drag.longPressTimer !== null) window.clearTimeout(drag.longPressTimer);
+    const selection = dragPreviewRef.current;
     const preview = blockPreviewRef.current;
+    blockDragRef.current = null;
+    updateDragPreview(null);
     updateBlockPreview(null);
+    if (drag.state === 'creating' && selection) {
+      suppressClickUntilRef.current = Date.now() + CLICK_SUPPRESS_MS;
+      void lightHaptic();
+      onAdd(selection.start, Math.max(TIME_CELL_MINUTE, selection.end - selection.start));
+      return;
+    }
+    if (drag.state !== 'moving') return;
+    suppressClickUntilRef.current = Date.now() + CLICK_SUPPRESS_MS;
     if (!drag.changed || !preview) return;
-    suppressClickRef.current = true;
     void lightHaptic();
     void onMove(drag.occurrence, preview.start, preview.duration);
   };
@@ -513,6 +572,8 @@ export function DayView({ date, settings, categories, occurrences, onDateChange,
   useEffect(() => () => {
     const timer = dragRef.current?.longPressTimer;
     if (timer != null) window.clearTimeout(timer);
+    const blockTimer = blockDragRef.current?.longPressTimer;
+    if (blockTimer != null) window.clearTimeout(blockTimer);
   }, []);
 
   const isToday = date === dateKey();
@@ -576,10 +637,10 @@ export function DayView({ date, settings, categories, occurrences, onDateChange,
                 onPointerDown={event => startBlockDrag(event, segment, 'move')}
                 onPointerMove={moveBlockDrag}
                 onPointerUp={endBlockDrag}
-                onPointerCancel={() => { blockDragRef.current = null; updateBlockPreview(null); }}
+                onPointerCancel={clearBlockGesture}
                 onContextMenu={event => event.preventDefault()}
                 onClick={() => {
-                  if (suppressClickRef.current) { suppressClickRef.current = false; return; }
+                  if (Date.now() < suppressClickUntilRef.current) return;
                   onEdit(segment);
                 }}
               >
