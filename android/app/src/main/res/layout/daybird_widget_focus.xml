@@ -1,0 +1,18 @@
+<?xml version="1.0" encoding="utf-8"?>
+<LinearLayout xmlns:android="http://schemas.android.com/apk/res/android"
+    android:id="@+id/focus_widget_root"
+    android:layout_width="match_parent"
+    android:layout_height="match_parent"
+    android:background="@drawable/widget_focus_background"
+    android:gravity="center_horizontal"
+    android:orientation="vertical"
+    android:padding="14dp">
+    <LinearLayout android:layout_width="match_parent" android:layout_height="wrap_content" android:gravity="center_vertical" android:orientation="horizontal">
+        <ImageView android:layout_width="28dp" android:layout_height="28dp" android:contentDescription="@string/app_name" android:src="@mipmap/ic_launcher" />
+        <TextView android:layout_width="0dp" android:layout_height="wrap_content" android:layout_marginStart="8dp" android:layout_weight="1" android:text="FOCUS" android:textColor="#007AFF" android:textSize="11sp" android:textStyle="bold" />
+        <TextView android:id="@+id/focus_widget_status" android:layout_width="wrap_content" android:layout_height="wrap_content" android:textColor="#73737B" android:textSize="10sp" />
+    </LinearLayout>
+    <TextView android:id="@+id/focus_widget_title" android:layout_width="match_parent" android:layout_height="wrap_content" android:layout_marginTop="8dp" android:ellipsize="end" android:gravity="center" android:maxLines="1" android:textColor="#1C1C1E" android:textSize="13sp" android:textStyle="bold" />
+    <Chronometer android:id="@+id/focus_widget_timer" android:layout_width="wrap_content" android:layout_height="0dp" android:layout_weight="1" android:gravity="center" android:textColor="#1C1C1E" android:textSize="30sp" android:textStyle="bold" />
+    <TextView android:layout_width="wrap_content" android:layout_height="wrap_content" android:text="탭하여 DayBird에서 제어" android:textColor="#73737B" android:textSize="10sp" />
+</LinearLayout>

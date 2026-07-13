@@ -54,6 +54,7 @@ import {
   syncScheduleNotifications,
   type NotificationCapability
 } from './lib/platform';
+import { syncDayBirdWidgets } from './lib/widgets';
 
 type Tab = 'day' | 'week' | 'focus' | 'settings';
 type Toast = { id: number; message: string };
@@ -108,6 +109,7 @@ export default function App() {
   const refresh = useCallback(async () => {
     const next = await loadSnapshot();
     await saveRecoveryBackup(next);
+    await syncDayBirdWidgets(next);
     setSnapshot(next);
     setReady(true);
   }, []);

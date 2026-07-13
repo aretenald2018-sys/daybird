@@ -4,4 +4,7 @@
     <string name="title_activity_main">DayBird</string>
     <string name="package_name">com.aretenald.daybird</string>
     <string name="custom_url_scheme">com.aretenald.daybird</string>
+    <string name="widget_agenda_description">오늘의 다음 일정을 간결하게 확인합니다</string>
+    <string name="widget_timeline_description">오늘의 전체 타임라인을 확인합니다</string>
+    <string name="widget_focus_description">진행 중인 집중 타이머를 확인합니다</string>
 </resources>

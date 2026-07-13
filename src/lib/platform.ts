@@ -92,21 +92,37 @@ export async function scheduleFocusNotification(sessionId: string, title: string
   await LocalNotifications.createChannel({
     id: 'daybird-focus',
     name: '집중 타이머',
-    description: '집중 세션 완료 알림',
+    description: '진행 중인 집중 세션과 완료 알림',
     importance: 4,
     visibility: 1
   });
-  await LocalNotifications.schedule({ notifications: [{
-    id: notificationId(`focus:${sessionId}`),
-    title: '집중 완료',
-    body: `${title} 세션을 마쳤어요.`,
-    schedule: { at: new Date(targetEndAt), allowWhileIdle: true },
-    extra: { daybirdType: 'focus', sessionId },
-    channelId: 'daybird-focus'
-  }] });
+  await cancelFocusNotification(sessionId);
+  const endsAt = new Intl.DateTimeFormat('ko-KR', { hour: '2-digit', minute: '2-digit' }).format(new Date(targetEndAt));
+  await LocalNotifications.schedule({ notifications: [
+    {
+      id: notificationId(`focus-live:${sessionId}`),
+      title: `집중 중 · ${title}`,
+      body: `${endsAt}까지 집중합니다.`,
+      ongoing: true,
+      autoCancel: false,
+      extra: { daybirdType: 'focus-live', sessionId },
+      channelId: 'daybird-focus'
+    },
+    {
+      id: notificationId(`focus:${sessionId}`),
+      title: '집중 완료',
+      body: `${title} 세션을 마쳤어요.`,
+      schedule: { at: new Date(targetEndAt), allowWhileIdle: true },
+      extra: { daybirdType: 'focus', sessionId },
+      channelId: 'daybird-focus'
+    }
+  ] });
 }
 
 export async function cancelFocusNotification(sessionId: string): Promise<void> {
   if (!isNative) return;
-  await LocalNotifications.cancel({ notifications: [{ id: notificationId(`focus:${sessionId}`) }] });
+  await LocalNotifications.cancel({ notifications: [
+    { id: notificationId(`focus:${sessionId}`) },
+    { id: notificationId(`focus-live:${sessionId}`) }
+  ] });
 }

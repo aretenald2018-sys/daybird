@@ -8,48 +8,38 @@ const iconDir = path.join(root, 'public', 'icons');
 await fs.mkdir(iconDir, { recursive: true });
 const nativeAssetDir = path.join(root, 'assets');
 await fs.mkdir(nativeAssetDir, { recursive: true });
-
-function iconSvg(size, safe = false) {
-  const inset = safe ? Math.round(size * 0.18) : Math.round(size * 0.07);
-  const box = size - inset * 2;
-  const radius = Math.round(box * 0.25);
-  const scale = box / 512;
-  return `
-    <svg width="${size}" height="${size}" viewBox="0 0 ${size} ${size}" xmlns="http://www.w3.org/2000/svg">
-      <defs>
-        <linearGradient id="bg" x1="0" y1="0" x2="1" y2="1">
-          <stop offset="0" stop-color="#1789FF"/>
-          <stop offset="1" stop-color="#4EDCC9"/>
-        </linearGradient>
-        <filter id="shadow" x="-30%" y="-30%" width="160%" height="170%">
-          <feDropShadow dx="0" dy="${10 * scale}" stdDeviation="${12 * scale}" flood-color="#005FC8" flood-opacity=".22"/>
-        </filter>
-      </defs>
-      <rect width="${size}" height="${size}" fill="#F2F2F7"/>
-      <rect x="${inset}" y="${inset}" width="${box}" height="${box}" rx="${radius}" fill="url(#bg)"/>
-      <g transform="translate(${inset} ${inset}) scale(${scale})" filter="url(#shadow)" fill="#fff">
-        <path d="M132 102c31-6 58 13 65 45l37 170c5 25-12 49-37 52-23 3-44-12-48-35l-37-171c-7-31 3-55 20-61Z"/>
-        <path d="M276 113c61 4 112 54 114 116 2 58-38 105-94 117-22 5-43-9-48-31l-38-175c-5-23 15-40 39-33l27 6Zm-1 63 22 103c23-10 37-32 36-57-1-28-18-53-58-46Z" fill-rule="evenodd"/>
-      </g>
-    </svg>`;
-}
+const masterIcon = await fs.readFile(path.join(nativeAssetDir, 'daybird-icon-master.png'));
 
 for (const size of [192, 512]) {
-  await sharp(Buffer.from(iconSvg(size))).png().toFile(path.join(iconDir, `daybird-${size}.png`));
+  await sharp(masterIcon).resize(size, size).png().toFile(path.join(iconDir, `daybird-${size}.png`));
 }
-await sharp(Buffer.from(iconSvg(512, true))).png().toFile(path.join(iconDir, 'daybird-512-maskable.png'));
-await sharp(Buffer.from(iconSvg(1024, true))).png().toFile(path.join(nativeAssetDir, 'icon-only.png'));
+await sharp(masterIcon).resize(512, 512).png().toFile(path.join(iconDir, 'daybird-512-maskable.png'));
+await sharp(masterIcon).resize(1024, 1024).png().toFile(path.join(nativeAssetDir, 'icon-only.png'));
 
-const splash = `
-  <svg width="2732" height="2732" viewBox="0 0 2732 2732" xmlns="http://www.w3.org/2000/svg">
-    <rect width="2732" height="2732" fill="#F2F2F7"/>
-    <g transform="translate(1026 1026) scale(1.328125)">
-      <rect width="512" height="512" rx="132" fill="url(#splashBg)"/>
-      <defs><linearGradient id="splashBg" x1="0" y1="0" x2="1" y2="1"><stop stop-color="#1789FF"/><stop offset="1" stop-color="#4EDCC9"/></linearGradient></defs>
-      <g fill="#fff"><path d="M132 102c31-6 58 13 65 45l37 170c5 25-12 49-37 52-23 3-44-12-48-35l-37-171c-7-31 3-55 20-61Z"/><path d="M276 113c61 4 112 54 114 116 2 58-38 105-94 117-22 5-43-9-48-31l-38-175c-5-23 15-40 39-33l27 6Zm-1 63 22 103c23-10 37-32 36-57-1-28-18-53-58-46Z" fill-rule="evenodd"/></g>
-    </g>
-  </svg>`;
-await sharp(Buffer.from(splash)).png().toFile(path.join(nativeAssetDir, 'splash.png'));
+const androidIconSizes = { ldpi: 36, mdpi: 48, hdpi: 72, xhdpi: 96, xxhdpi: 144, xxxhdpi: 192 };
+const androidForegroundSizes = { mdpi: 108, hdpi: 162, xhdpi: 216, xxhdpi: 324, xxxhdpi: 432 };
+for (const [density, size] of Object.entries(androidIconSizes)) {
+  const destination = path.join(root, 'android', 'app', 'src', 'main', 'res', `mipmap-${density}`);
+  await fs.mkdir(destination, { recursive: true });
+  const icon = await sharp(masterIcon).resize(size, size).png().toBuffer();
+  await fs.writeFile(path.join(destination, 'ic_launcher.png'), icon);
+  await fs.writeFile(path.join(destination, 'ic_launcher_round.png'), icon);
+}
+for (const [density, size] of Object.entries(androidForegroundSizes)) {
+  const destination = path.join(root, 'android', 'app', 'src', 'main', 'res', `mipmap-${density}`);
+  await fs.mkdir(destination, { recursive: true });
+  await sharp(masterIcon).resize(size, size).png().toFile(path.join(destination, 'ic_launcher_foreground.png'));
+}
+
+const splashIcon = await sharp(masterIcon)
+  .resize(680, 680)
+  .composite([{ input: Buffer.from('<svg width="680" height="680"><rect width="680" height="680" rx="176" fill="#fff"/></svg>'), blend: 'dest-in' }])
+  .png()
+  .toBuffer();
+await sharp({ create: { width: 2732, height: 2732, channels: 4, background: '#F2F2F7' } })
+  .composite([{ input: splashIcon, left: 1026, top: 1026 }])
+  .png()
+  .toFile(path.join(nativeAssetDir, 'splash.png'));
 
 const og = `
   <svg width="1200" height="630" viewBox="0 0 1200 630" xmlns="http://www.w3.org/2000/svg">
