@@ -71,7 +71,8 @@ const EMPTY_CREATE_LONG_PRESS_MS = 360;
 const DEFAULT_EVENT_DURATION_MINUTE = 30;
 const POINTER_DRAG_THRESHOLD = 10;
 const CLICK_SUPPRESS_MS = 700;
-const COMPLETED_EVENT_COLOR = '#3B5BDB';
+const COMPLETED_EVENT_BACKGROUND = '#DCE8FF';
+const COMPLETED_EVENT_ACCENT = '#6F8FE8';
 
 const EMPTY_SNAPSHOT: DayBirdSnapshot = {
   categories: [], schedules: [], overrides: [], focusSessions: [], settings: DEFAULT_SETTINGS
@@ -678,8 +679,8 @@ export function DayView({ date, settings, categories, occurrences, onDateChange,
                 className={`event-block matrix-event${piece.isFirst ? ' starts-here' : ''}${piece.isLast ? ' ends-here' : ''}${segment.laneCount > 1 ? ' stacked' : ''}${segment.laneCount > 2 ? ' dense' : ''}${selectedBlockKey === segment.key ? ' selected' : ''}${segment.completed ? ' completed' : ''}`}
                 style={{
                   ...matrixPieceStyle(piece, segment.lane, segment.laneCount),
-                  '--event-color': segment.completed ? COMPLETED_EVENT_COLOR : category?.color ?? '#8D94A0',
-                  '--event-bg': segment.completed ? COMPLETED_EVENT_COLOR : rgba(category?.color ?? '#8D94A0', 0.2),
+                  '--event-color': segment.completed ? COMPLETED_EVENT_ACCENT : category?.color ?? '#8D94A0',
+                  '--event-bg': segment.completed ? COMPLETED_EVENT_BACKGROUND : rgba(category?.color ?? '#8D94A0', 0.2),
                   textAlign: settings.textAlign
                 } as React.CSSProperties}
                 aria-label={`${segment.title}${segment.completed ? ', 완료됨' : ''}${details.length ? `, 상세내역 ${details.map(detail => detail.text).join(', ')}` : ''}, ${formatMinute(segment.startMinute)}부터 ${formatMinute(segment.startMinute + segment.durationMinute)}까지`}
@@ -810,7 +811,7 @@ function WeekView({ date, settings, categories, occurrences, onDateChange, onOpe
                         style={{
                           top: `${(segment.segmentStart - startMinute) * pxPerMinute}px`,
                           height: `${Math.max(4, (segment.segmentEnd - segment.segmentStart) * pxPerMinute)}px`,
-                          background: segment.completed ? COMPLETED_EVENT_COLOR : rgba(category?.color ?? '#8D94A0', 0.75)
+                          background: segment.completed ? COMPLETED_EVENT_BACKGROUND : rgba(category?.color ?? '#8D94A0', 0.75)
                         }}
                         title={`${segment.title}${segment.completed ? ' 완료됨' : ''} ${formatMinute(segment.startMinute)}`}
                       >

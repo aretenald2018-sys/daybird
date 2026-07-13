@@ -119,9 +119,9 @@ final class DayBirdWidgetStore {
             views.setInt(titles[index], "setMaxLines", 2);
             views.setInt(rows[index], "setBackgroundResource", completed ? R.drawable.widget_completed_row : android.R.color.transparent);
             views.setViewPadding(rows[index], completed ? Math.round(6 * density) : 0, completed ? Math.round(2 * density) : 0, completed ? Math.round(6 * density) : 0, completed ? Math.round(2 * density) : 0);
-            views.setTextColor(times[index], Color.parseColor(completed ? "#EAF3FF" : "#73737B"));
-            views.setTextColor(titles[index], Color.parseColor(completed ? "#FFFFFF" : "#1C1C1E"));
-            views.setInt(colors[index], "setBackgroundColor", completed ? Color.WHITE : parseColor(event.optString("color", "#8D94A0")));
+            views.setTextColor(times[index], Color.parseColor(completed ? "#4F6494" : "#73737B"));
+            views.setTextColor(titles[index], Color.parseColor(completed ? "#203A72" : "#1C1C1E"));
+            views.setInt(colors[index], "setBackgroundColor", completed ? Color.parseColor("#6F8FE8") : parseColor(event.optString("color", "#8D94A0")));
         }
     }
 
