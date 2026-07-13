@@ -77,6 +77,10 @@ svg { width: 22px; height: 22px; stroke-width: 1.9; }
 .event-block .resize-handle.end { right: 0; }
 .matrix-event:not(.starts-here) { border-left-color: transparent; border-top-left-radius: 0; border-bottom-left-radius: 0; }
 .matrix-event:not(.ends-here) { border-top-right-radius: 0; border-bottom-right-radius: 0; }
+.matrix-event.stacked { padding: 2px 5px; border-left-width: 2px; }
+.matrix-event.stacked strong { font-size: calc(10px * var(--font-scale)); line-height: 1.2; }
+.matrix-event.dense { padding-top: 1px; padding-bottom: 1px; }
+.matrix-event.dense strong { font-size: calc(9px * var(--font-scale)); }
 .drag-preview { position: absolute; z-index: 8; overflow: hidden; padding: 6px 9px; color: #0066d6; border: 1.5px dashed #1383ff; border-radius: 6px; background: rgba(0,122,255,.13); font-size: 11px; font-weight: 700; pointer-events: none; }
 .now-line { position: absolute; z-index: 12; left: 54px; right: 0; height: 2px; background: #ff3b30; pointer-events: none; }
 .now-line::before { content: ''; position: absolute; left: -5px; top: -4px; width: 10px; height: 10px; border-radius: 50%; background: #ff3b30; }
@@ -194,6 +198,7 @@ svg { width: 22px; height: 22px; stroke-width: 1.9; }
 .action-settings strong { font-size: 14px; }
 .action-settings small { margin-top: 3px; color: var(--secondary); font-size: 11px; }
 .action-settings .destructive-row, .action-settings .destructive-row > svg:first-child { color: var(--danger); }
+.data-storage-note { margin: -4px 8px 18px; color: var(--secondary); font-size: 11px; line-height: 1.5; }
 .settings-footer { display: flex; flex-direction: column; align-items: center; padding: 28px 0 14px; color: var(--secondary); }
 .mini-brand { width: 38px; height: 34px; border-radius: 11px; box-shadow: none; transform: scale(.9); }
 .mini-brand span:first-child { left: 9px; top: 6px; width: 8px; height: 20px; }

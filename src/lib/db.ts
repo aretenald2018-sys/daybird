@@ -30,6 +30,8 @@ class DayBirdDatabase extends Dexie {
 }
 
 export const db = new DayBirdDatabase();
+const RECOVERY_BACKUP_KEY = 'daybird:recovery-v1';
+const LAST_IMPORT_BACKUP_KEY = 'daybird:last-before-import';
 
 export async function ensureSeedData(): Promise<void> {
   await db.transaction('rw', db.categories, db.settings, async () => {
@@ -46,18 +48,6 @@ export interface DayBirdSnapshot {
   settings: AppSettings;
 }
 
-export async function loadSnapshot(): Promise<DayBirdSnapshot> {
-  await ensureSeedData();
-  const [categories, schedules, overrides, focusSessions, settings] = await Promise.all([
-    db.categories.orderBy('order').toArray(),
-    db.schedules.toArray(),
-    db.overrides.toArray(),
-    db.focusSessions.orderBy('startedAt').reverse().toArray(),
-    db.settings.get('app')
-  ]);
-  return { categories, schedules, overrides, focusSessions, settings: settings ?? DEFAULT_SETTINGS };
-}
-
 const backupSchema = z.object({
   schemaVersion: z.literal(1),
   appVersion: z.string(),
@@ -71,16 +61,27 @@ const backupSchema = z.object({
   })
 });
 
-export async function exportBackup(): Promise<string> {
-  const data = await loadSnapshot();
+type ParsedBackup = z.infer<typeof backupSchema>;
+
+function readBackup(key: string): ParsedBackup | null {
+  try {
+    const raw = localStorage.getItem(key);
+    return raw ? backupSchema.parse(JSON.parse(raw)) : null;
+  } catch {
+    return null;
+  }
+}
+
+function serializeBackup(data: DayBirdSnapshot): string {
   return JSON.stringify({ schemaVersion: 1, appVersion: '0.1.0', exportedAt: Date.now(), data }, null, 2);
 }
 
-export async function importBackup(raw: string): Promise<void> {
-  const parsed = backupSchema.parse(JSON.parse(raw));
-  const current = await exportBackup();
-  localStorage.setItem('daybird:last-auto-backup', current);
-  const data = parsed.data as unknown as DayBirdSnapshot;
+async function databaseIsEmpty(): Promise<boolean> {
+  const counts = await Promise.all([db.categories.count(), db.schedules.count(), db.overrides.count(), db.focusSessions.count(), db.settings.count()]);
+  return counts.every(count => count === 0);
+}
+
+async function replaceSnapshot(data: DayBirdSnapshot): Promise<void> {
   await db.transaction('rw', db.categories, db.schedules, db.overrides, db.focusSessions, db.settings, async () => {
     await Promise.all([
       db.categories.clear(),
@@ -97,11 +98,62 @@ export async function importBackup(raw: string): Promise<void> {
   });
 }
 
+export async function loadSnapshot(): Promise<DayBirdSnapshot> {
+  if (await databaseIsEmpty()) {
+    const recovery = readBackup(RECOVERY_BACKUP_KEY);
+    if (recovery) await replaceSnapshot(recovery.data as unknown as DayBirdSnapshot);
+  }
+  await ensureSeedData();
+  const [categories, schedules, overrides, focusSessions, settings] = await Promise.all([
+    db.categories.orderBy('order').toArray(),
+    db.schedules.toArray(),
+    db.overrides.toArray(),
+    db.focusSessions.orderBy('startedAt').reverse().toArray(),
+    db.settings.get('app')
+  ]);
+  return { categories, schedules, overrides, focusSessions, settings: settings ?? DEFAULT_SETTINGS };
+}
+
+export async function saveRecoveryBackup(data?: DayBirdSnapshot): Promise<void> {
+  try {
+    localStorage.setItem(RECOVERY_BACKUP_KEY, serializeBackup(data ?? await loadSnapshot()));
+  } catch {
+    // Browser storage can be disabled or full; IndexedDB remains the primary store.
+  }
+}
+
+export function getRecoveryBackupInfo(): { exportedAt: number; scheduleCount: number } | null {
+  const recovery = readBackup(RECOVERY_BACKUP_KEY);
+  return recovery ? { exportedAt: recovery.exportedAt, scheduleCount: recovery.data.schedules.length } : null;
+}
+
+export async function restoreRecoveryBackup(): Promise<boolean> {
+  const recovery = readBackup(RECOVERY_BACKUP_KEY);
+  if (!recovery) return false;
+  await replaceSnapshot(recovery.data as unknown as DayBirdSnapshot);
+  return true;
+}
+
+export async function exportBackup(): Promise<string> {
+  const data = await loadSnapshot();
+  return serializeBackup(data);
+}
+
+export async function importBackup(raw: string): Promise<void> {
+  const parsed = backupSchema.parse(JSON.parse(raw));
+  const current = await exportBackup();
+  try { localStorage.setItem(LAST_IMPORT_BACKUP_KEY, current); } catch { /* Keep importing even if localStorage is unavailable. */ }
+  const data = parsed.data as unknown as DayBirdSnapshot;
+  await replaceSnapshot(data);
+  await saveRecoveryBackup(data);
+}
+
 export async function resetDatabase(): Promise<void> {
   await db.transaction('rw', db.categories, db.schedules, db.overrides, db.focusSessions, db.settings, async () => {
     await Promise.all([
       db.categories.clear(), db.schedules.clear(), db.overrides.clear(), db.focusSessions.clear(), db.settings.clear()
     ]);
   });
+  try { localStorage.removeItem(RECOVERY_BACKUP_KEY); } catch { /* The database reset should still succeed. */ }
   await ensureSeedData();
 }

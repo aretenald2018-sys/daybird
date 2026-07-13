@@ -1,7 +1,7 @@
 import { act, fireEvent, render } from '@testing-library/react';
 import { afterAll, afterEach, beforeAll, describe, expect, it, vi } from 'vitest';
 import { DayView } from '../App';
-import { DEFAULT_CATEGORIES, DEFAULT_SETTINGS } from '../lib/domain';
+import { DEFAULT_CATEGORIES, DEFAULT_SETTINGS, type ScheduleOccurrence } from '../lib/domain';
 
 const baseProps = {
   date: '2026-07-13',
@@ -45,6 +45,20 @@ function setMatrixBounds(grid: Element) {
 }
 
 describe('DayView touch gestures', () => {
+  it('stacks overlapping plans in thinner lanes without making the hour row taller', () => {
+    const occurrences: ScheduleOccurrence[] = [
+      { key: 'first', seriesId: 'first', originalDate: '2026-07-13', date: '2026-07-13', title: '14시 블록', categoryId: 'work', startMinute: 14 * 60, durationMinute: 60, reminderMinute: null },
+      { key: 'second', seriesId: 'second', originalDate: '2026-07-13', date: '2026-07-13', title: '14시 05분 블록', categoryId: 'study', startMinute: 14 * 60 + 5, durationMinute: 45, reminderMinute: null }
+    ];
+    const { container } = render(<DayView {...baseProps} occurrences={occurrences} onAdd={vi.fn()} />);
+    const blocks = Array.from(container.querySelectorAll<HTMLElement>('.matrix-event.stacked'));
+
+    expect(blocks).toHaveLength(2);
+    expect(blocks.map(block => block.style.height)).toEqual(['17px', '17px']);
+    expect(blocks.map(block => block.style.top)).toEqual(['338px', '357px']);
+    expect(blocks[1]?.style.left).not.toBe(blocks[0]?.style.left);
+  });
+
   it('creates one 10-minute planning cell without pointer movement', () => {
     const onAdd = vi.fn();
     const { container } = render(<DayView {...baseProps} onAdd={onAdd} />);
@@ -52,8 +66,8 @@ describe('DayView touch gestures', () => {
     expect(grid).not.toBeNull();
     setMatrixBounds(grid!);
 
-    fireEvent.pointerDown(grid!, { pointerId: 9, pointerType: 'mouse', clientX: 90, clientY: 120, button: 0 });
-    fireEvent.pointerUp(grid!, { pointerId: 9, pointerType: 'mouse', clientX: 90, clientY: 120 });
+    fireEvent.pointerDown(grid!, { pointerId: 9, pointerType: 'mouse', clientX: 80, clientY: 120, button: 0 });
+    fireEvent.pointerUp(grid!, { pointerId: 9, pointerType: 'mouse', clientX: 80, clientY: 120 });
 
     expect(onAdd).toHaveBeenLastCalledWith(480, 10);
   });
@@ -67,10 +81,10 @@ describe('DayView touch gestures', () => {
     expect(container.querySelectorAll('.timeline-cell')).toHaveLength(108);
     setMatrixBounds(grid!);
 
-    fireEvent.pointerDown(grid!, { pointerId: 1, pointerType: 'touch', clientX: 90, clientY: 120, button: 0 });
+    fireEvent.pointerDown(grid!, { pointerId: 1, pointerType: 'touch', clientX: 80, clientY: 120, button: 0 });
     act(() => vi.advanceTimersByTime(300));
-    fireEvent.pointerMove(grid!, { pointerId: 1, pointerType: 'touch', clientX: 210, clientY: 120 });
-    fireEvent.pointerUp(grid!, { pointerId: 1, pointerType: 'touch', clientX: 210, clientY: 120 });
+    fireEvent.pointerMove(grid!, { pointerId: 1, pointerType: 'touch', clientX: 165, clientY: 120 });
+    fireEvent.pointerUp(grid!, { pointerId: 1, pointerType: 'touch', clientX: 165, clientY: 120 });
 
     expect(onAdd).toHaveBeenCalledTimes(1);
     expect(onAdd).toHaveBeenLastCalledWith(480, 30);
@@ -87,7 +101,7 @@ describe('DayView touch gestures', () => {
     fireEvent.pointerMove(grid!, { pointerId: 7, pointerType: 'mouse', clientX: 160, clientY: 162 });
     fireEvent.pointerUp(grid!, { pointerId: 7, pointerType: 'mouse', clientX: 160, clientY: 162 });
 
-    expect(onAdd).toHaveBeenLastCalledWith(530, 30);
+    expect(onAdd).toHaveBeenLastCalledWith(535, 30);
   });
 
   it('treats an early vertical move as scrolling instead of creating an event', () => {
@@ -98,10 +112,10 @@ describe('DayView touch gestures', () => {
     expect(grid).not.toBeNull();
     setMatrixBounds(grid!);
 
-    fireEvent.pointerDown(grid!, { pointerId: 2, pointerType: 'touch', clientX: 90, clientY: 120, button: 0 });
-    fireEvent.pointerMove(grid!, { pointerId: 2, pointerType: 'touch', clientX: 90, clientY: 160 });
+    fireEvent.pointerDown(grid!, { pointerId: 2, pointerType: 'touch', clientX: 80, clientY: 120, button: 0 });
+    fireEvent.pointerMove(grid!, { pointerId: 2, pointerType: 'touch', clientX: 80, clientY: 160 });
     act(() => vi.advanceTimersByTime(300));
-    fireEvent.pointerUp(grid!, { pointerId: 2, pointerType: 'touch', clientX: 90, clientY: 160 });
+    fireEvent.pointerUp(grid!, { pointerId: 2, pointerType: 'touch', clientX: 80, clientY: 160 });
 
     expect(onAdd).not.toHaveBeenCalled();
   });

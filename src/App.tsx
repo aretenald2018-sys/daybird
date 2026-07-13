@@ -21,7 +21,7 @@ import {
   Upload
 } from 'lucide-react';
 import { registerSW } from 'virtual:pwa-register';
-import { db, exportBackup, importBackup, loadSnapshot, resetDatabase, type DayBirdSnapshot } from './lib/db';
+import { db, exportBackup, getRecoveryBackupInfo, importBackup, loadSnapshot, resetDatabase, restoreRecoveryBackup, saveRecoveryBackup, type DayBirdSnapshot } from './lib/db';
 import {
   DEFAULT_SETTINGS,
   addDays,
@@ -58,6 +58,7 @@ import {
 type Tab = 'day' | 'week' | 'focus' | 'settings';
 type Toast = { id: number; message: string };
 const TIME_CELL_MINUTE = 10;
+const TIME_GRID_SNAP_MINUTE = 5;
 const TIME_MATRIX_COLUMNS = 6;
 const TIME_GRID_GUTTER = 64;
 
@@ -103,6 +104,7 @@ export default function App() {
 
   const refresh = useCallback(async () => {
     const next = await loadSnapshot();
+    await saveRecoveryBackup(next);
     setSnapshot(next);
     setReady(true);
   }, []);
@@ -345,17 +347,18 @@ export function DayView({ date, settings, categories, occurrences, onDateChange,
     const rect = gridRef.current?.getBoundingClientRect();
     if (!rect) return rangeStart;
     const gridWidth = Math.max(1, rect.width - TIME_GRID_GUTTER);
-    const columnWidth = gridWidth / TIME_MATRIX_COLUMNS;
-    const column = Math.max(0, Math.min(TIME_MATRIX_COLUMNS - 1, Math.floor((clientX - rect.left - TIME_GRID_GUTTER) / columnWidth)));
+    const snapColumns = TIME_MATRIX_COLUMNS * (TIME_CELL_MINUTE / TIME_GRID_SNAP_MINUTE);
+    const columnWidth = gridWidth / snapColumns;
+    const column = Math.max(0, Math.min(snapColumns - 1, Math.floor((clientX - rect.left - TIME_GRID_GUTTER) / columnWidth)));
     const row = Math.max(0, Math.min((rangeEnd - rangeStart) / 60 - 1, Math.floor((clientY - rect.top) / hourHeight)));
-    return rangeStart + row * 60 + column * TIME_CELL_MINUTE;
+    return rangeStart + row * 60 + column * TIME_GRID_SNAP_MINUTE;
   };
 
   const matrixPieces = (start: number, end: number) => {
-    const safeStart = Math.max(rangeStart, Math.min(rangeEnd - TIME_CELL_MINUTE, Math.floor(start / TIME_CELL_MINUTE) * TIME_CELL_MINUTE));
-    const safeEnd = Math.max(safeStart + TIME_CELL_MINUTE, Math.min(rangeEnd, Math.ceil(end / TIME_CELL_MINUTE) * TIME_CELL_MINUTE));
+    const safeStart = Math.max(rangeStart, Math.min(rangeEnd - TIME_GRID_SNAP_MINUTE, Math.floor(start / TIME_GRID_SNAP_MINUTE) * TIME_GRID_SNAP_MINUTE));
+    const safeEnd = Math.max(safeStart + TIME_GRID_SNAP_MINUTE, Math.min(rangeEnd, Math.ceil(end / TIME_GRID_SNAP_MINUTE) * TIME_GRID_SNAP_MINUTE));
     const firstRow = Math.floor((safeStart - rangeStart) / 60);
-    const lastRow = Math.floor((safeEnd - TIME_CELL_MINUTE - rangeStart) / 60);
+    const lastRow = Math.floor((safeEnd - TIME_GRID_SNAP_MINUTE - rangeStart) / 60);
     return Array.from({ length: lastRow - firstRow + 1 }, (_, index) => {
       const row = firstRow + index;
       const rowStart = rangeStart + row * 60;
@@ -369,14 +372,16 @@ export function DayView({ date, settings, categories, occurrences, onDateChange,
     });
   };
 
-  const matrixPieceStyle = (piece: ReturnType<typeof matrixPieces>[number]) => {
+  const matrixPieceStyle = (piece: ReturnType<typeof matrixPieces>[number], lane = 0, laneCount = 1) => {
     const startRatio = (piece.start - (rangeStart + piece.row * 60)) / 60;
     const widthRatio = (piece.end - piece.start) / 60;
+    const laneHeight = (hourHeight - 4) / laneCount;
     return {
-      top: `${piece.row * hourHeight + 2}px`,
-      height: `${Math.max(26, hourHeight - 3)}px`,
+      top: `${piece.row * hourHeight + 2 + lane * laneHeight}px`,
+      height: `${Math.max(10, laneHeight - 2)}px`,
       left: `calc(${TIME_GRID_GUTTER}px + ${startRatio * 100}% - ${TIME_GRID_GUTTER * startRatio}px)`,
-      width: `calc(${widthRatio * 100}% - ${TIME_GRID_GUTTER * widthRatio}px - 3px)`
+      width: `calc(${widthRatio * 100}% - ${TIME_GRID_GUTTER * widthRatio}px - 3px)`,
+      zIndex: 5 + lane
     } as React.CSSProperties;
   };
 
@@ -469,18 +474,18 @@ export function DayView({ date, settings, categories, occurrences, onDateChange,
     const drag = blockDragRef.current;
     if (!drag || drag.pointerId !== event.pointerId) return;
     const rawDelta = minuteAtPointer(event.clientX, event.clientY) - drag.anchorMinute;
-    const delta = Math.round(rawDelta / TIME_CELL_MINUTE) * TIME_CELL_MINUTE;
-    if (Math.abs(delta) >= TIME_CELL_MINUTE) drag.changed = true;
+    const delta = Math.round(rawDelta / TIME_GRID_SNAP_MINUTE) * TIME_GRID_SNAP_MINUTE;
+    if (Math.abs(delta) >= TIME_GRID_SNAP_MINUTE) drag.changed = true;
     let nextStart = drag.originalStart;
     let nextDuration = drag.originalDuration;
     if (drag.mode === 'move') {
-      nextStart = Math.max(0, Math.min(1440 - TIME_CELL_MINUTE, drag.originalStart + delta));
+      nextStart = Math.max(0, Math.min(1440 - TIME_GRID_SNAP_MINUTE, drag.originalStart + delta));
     } else if (drag.mode === 'resize-start') {
       const end = drag.originalStart + drag.originalDuration;
-      nextStart = Math.max(0, Math.min(end - TIME_CELL_MINUTE, drag.originalStart + delta));
+      nextStart = Math.max(0, Math.min(end - TIME_GRID_SNAP_MINUTE, drag.originalStart + delta));
       nextDuration = end - nextStart;
     } else {
-      nextDuration = Math.max(TIME_CELL_MINUTE, Math.min(1440, drag.originalDuration + delta));
+      nextDuration = Math.max(TIME_GRID_SNAP_MINUTE, Math.min(1440, drag.originalDuration + delta));
     }
     updateBlockPreview({ key: drag.occurrence.key, start: nextStart, duration: nextDuration });
   };
@@ -560,9 +565,9 @@ export function DayView({ date, settings, categories, occurrences, onDateChange,
               <button
                 key={`${segment.key}:${piece.row}`}
                 type="button"
-                className={`event-block matrix-event${piece.isFirst ? ' starts-here' : ''}${piece.isLast ? ' ends-here' : ''}`}
+                className={`event-block matrix-event${piece.isFirst ? ' starts-here' : ''}${piece.isLast ? ' ends-here' : ''}${segment.laneCount > 1 ? ' stacked' : ''}${segment.laneCount > 2 ? ' dense' : ''}`}
                 style={{
-                  ...matrixPieceStyle(piece),
+                  ...matrixPieceStyle(piece, segment.lane, segment.laneCount),
                   '--event-color': category?.color ?? '#8D94A0',
                   '--event-bg': rgba(category?.color ?? '#8D94A0', 0.2),
                   textAlign: settings.textAlign
@@ -579,7 +584,7 @@ export function DayView({ date, settings, categories, occurrences, onDateChange,
                 }}
               >
                 {piece.isFirst && <span className="resize-handle start" aria-hidden="true" onPointerDown={event => startBlockDrag(event, segment, 'resize-start')} />}
-                {piece.isFirst && <><strong>{segment.title}</strong>{(displayEnd - displayStart) >= 20 && <span>{formatMinute(displayStart)}–{formatMinute(displayEnd)}</span>}</>}
+                {piece.isFirst && <><strong>{segment.title}</strong>{segment.laneCount === 1 && (displayEnd - displayStart) >= 20 && <span>{formatMinute(displayStart)}–{formatMinute(displayEnd)}</span>}</>}
                 {piece.isLast && <span className="resize-handle end" aria-hidden="true" onPointerDown={event => startBlockDrag(event, segment, 'resize-end')} />}
               </button>
             ));
@@ -954,6 +959,7 @@ function SettingsView({ snapshot, installPrompt, onInstalled, onRefresh, notify 
   notify: (message: string) => void;
 }) {
   const [capability, setCapability] = useState<NotificationCapability | null>(null);
+  const [recoveryInfo, setRecoveryInfo] = useState(() => getRecoveryBackupInfo());
   const fileRef = useRef<HTMLInputElement>(null);
 
   useEffect(() => { void notificationCapability().then(setCapability); }, []);
@@ -988,11 +994,31 @@ function SettingsView({ snapshot, installPrompt, onInstalled, onRefresh, notify 
     try {
       await importBackup(await file.text());
       await onRefresh();
+      setRecoveryInfo(getRecoveryBackupInfo());
       notify('백업을 복원했어요.');
     } catch {
       notify('DayBird 백업 파일을 확인해 주세요.');
     }
   };
+
+  const restoreRecovery = async () => {
+    if (!recoveryInfo) {
+      notify('이 기기에서 찾을 수 있는 복구 사본이 없어요.');
+      return;
+    }
+    if (!window.confirm('마지막 자동 복구 사본으로 현재 데이터를 덮어쓸까요?')) return;
+    if (!await restoreRecoveryBackup()) {
+      notify('복구 사본을 읽지 못했어요.');
+      return;
+    }
+    await onRefresh();
+    setRecoveryInfo(getRecoveryBackupInfo());
+    notify('마지막 자동 복구 사본으로 되돌렸어요.');
+  };
+
+  const recoveryDescription = recoveryInfo
+    ? `${new Intl.DateTimeFormat('ko-KR', { month: 'numeric', day: 'numeric', hour: '2-digit', minute: '2-digit' }).format(new Date(recoveryInfo.exportedAt))} · 일정 ${recoveryInfo.scheduleCount}개`
+    : '이 기기에 복구 사본이 없어요';
 
   const install = async () => {
     if (!installPrompt) { notify('브라우저 메뉴에서 홈 화면에 추가할 수 있어요.'); return; }
@@ -1039,8 +1065,10 @@ function SettingsView({ snapshot, installPrompt, onInstalled, onRefresh, notify 
         <button type="button" onClick={() => void downloadBackup()}><Download /><span><strong>백업 내보내기</strong><small>일정과 설정을 JSON으로 저장</small></span><ChevronRight /></button>
         <button type="button" onClick={() => fileRef.current?.click()}><Upload /><span><strong>백업 가져오기</strong><small>현재 데이터는 자동으로 임시 백업</small></span><ChevronRight /></button>
         <input ref={fileRef} hidden type="file" accept="application/json" onChange={event => { const file = event.target.files?.[0]; if (file) void restoreBackup(file); }} />
-        <button type="button" className="destructive-row" onClick={async () => { if (!window.confirm('모든 일정과 기록을 지울까요?')) return; await resetDatabase(); await onRefresh(); notify('DayBird를 초기화했어요.'); }}><RotateCcw /><span><strong>모든 데이터 초기화</strong><small>이 작업은 되돌릴 수 없어요</small></span><ChevronRight /></button>
+        <button type="button" onClick={() => void restoreRecovery()}><RotateCcw /><span><strong>자동 복구 사본 되돌리기</strong><small>{recoveryDescription}</small></span><ChevronRight /></button>
+        <button type="button" className="destructive-row" onClick={async () => { if (!window.confirm('모든 일정과 기록을 지울까요?')) return; await resetDatabase(); await onRefresh(); setRecoveryInfo(getRecoveryBackupInfo()); notify('DayBird를 초기화했어요.'); }}><RotateCcw /><span><strong>모든 데이터 초기화</strong><small>이 작업은 되돌릴 수 없어요</small></span><ChevronRight /></button>
       </div>
+      <p className="data-storage-note">일정은 이 기기의 앱 저장소에 보관됩니다. PWA와 APK는 저장소가 서로 달라, 옮길 때는 백업 파일을 내보내고 가져와 주세요.</p>
 
       <footer className="settings-footer"><div className="mini-brand"><span /><span /></div><strong>DayBird</strong><span>Version 0.1.0 · Local first</span></footer>
     </section>
