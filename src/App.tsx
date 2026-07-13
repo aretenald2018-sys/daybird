@@ -750,7 +750,7 @@ export function DayView({ date, settings, categories, occurrences, onDateChange,
   );
 }
 
-function WeekView({ date, settings, categories, occurrences, onDateChange, onOpenDate }: {
+export function WeekView({ date, settings, categories, occurrences, onDateChange, onOpenDate }: {
   date: string;
   settings: AppSettings;
   categories: Category[];
@@ -804,18 +804,25 @@ function WeekView({ date, settings, categories, occurrences, onDateChange, onOpe
                   {hours.map(hour => <i key={hour} style={{ top: `${(hour * 60 - startMinute) * pxPerMinute}px` }} />)}
                   {segments.map(segment => {
                     const category = categoriesMap.get(segment.categoryId);
+                    const durationMinute = segment.segmentEnd - segment.segmentStart;
+                    const titleLength = Array.from(segment.title.replace(/\s/g, '')).length;
+                    const titleDensity = durationMinute <= 20 || titleLength >= 14
+                      ? ' micro'
+                      : durationMinute < 45 || titleLength >= 9
+                        ? ' compact'
+                        : '';
                     return (
                       <span
-                        className={`week-event${segment.completed ? ' completed' : ''}`}
+                        className={`week-event${titleDensity}${segment.completed ? ' completed' : ''}`}
                         key={`${segment.key}:${segment.segmentStart}`}
                         style={{
                           top: `${(segment.segmentStart - startMinute) * pxPerMinute}px`,
-                          height: `${Math.max(4, (segment.segmentEnd - segment.segmentStart) * pxPerMinute)}px`,
+                          height: `${Math.max(4, durationMinute * pxPerMinute)}px`,
                           background: segment.completed ? COMPLETED_EVENT_BACKGROUND : rgba(category?.color ?? '#8D94A0', 0.75)
                         }}
                         title={`${segment.title}${segment.completed ? ' 완료됨' : ''} ${formatMinute(segment.startMinute)}`}
                       >
-                        {(segment.segmentEnd - segment.segmentStart) >= 45 ? `${segment.completed ? '✓ ' : ''}${segment.title}` : ''}
+                        <span className="week-event-title">{`${segment.completed ? '✓ ' : ''}${segment.title}`}</span>
                       </span>
                     );
                   })}
