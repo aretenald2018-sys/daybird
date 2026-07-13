@@ -23,7 +23,7 @@ if (process.platform === 'win32') {
 }
 
 if (!env.JAVA_HOME || !fs.existsSync(env.JAVA_HOME)) {
-  throw new Error('JAVA_HOME을 찾지 못했습니다. Android Studio JBR 또는 JDK 17 경로를 설정해 주세요.');
+  throw new Error('JAVA_HOME을 찾지 못했습니다. Android Studio JBR 또는 JDK 21 경로를 설정해 주세요.');
 }
 if (!env.ANDROID_HOME || !fs.existsSync(env.ANDROID_HOME)) {
   throw new Error('Android SDK를 찾지 못했습니다. ANDROID_HOME을 설정해 주세요.');
