@@ -55,7 +55,7 @@ describe('DayView touch gestures', () => {
     const block = getByRole('button', { name: /완료한 일정, 완료됨/ });
 
     expect(block).toHaveClass('completed');
-    expect((block as HTMLElement).style.getPropertyValue('--event-bg')).toBe('#0A63D8');
+    expect((block as HTMLElement).style.getPropertyValue('--event-bg')).toBe('#3B5BDB');
     expect(container.querySelector('.event-block.completed strong')?.textContent).toBe('완료한 일정');
   });
 

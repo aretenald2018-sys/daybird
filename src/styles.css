@@ -79,12 +79,12 @@ svg { width: 22px; height: 22px; stroke-width: 1.9; }
 .event-detail-check > span { display: inline; flex: 0 0 auto; margin: 0; color: var(--event-color); font-size: 11px; line-height: 1; }
 .event-detail-check.checked { color: rgba(28,28,30,.48); text-decoration: line-through; }
 .event-block .event-time { color: rgba(28,28,30,.55); }
-.event-block.completed { color: #fff; border-left-color: #074ca8; background: var(--event-bg); box-shadow: inset 0 0 0 1px rgba(255,255,255,.2), 0 3px 9px rgba(10,99,216,.22); }
+.event-block.completed { color: #fff; border-left-color: #2f49ba; background: var(--event-bg); box-shadow: inset 0 0 0 1px rgba(255,255,255,.2), 0 3px 9px rgba(59,91,219,.2); }
 .event-block.completed strong::before { content: '✓'; display: inline-grid; width: 13px; height: 13px; margin-right: 4px; place-items: center; border-radius: 50%; background: rgba(255,255,255,.22); color: #fff; font-size: 9px; vertical-align: 1px; }
 .event-block.completed .event-details, .event-block.completed .event-detail-check, .event-block.completed .event-time { color: rgba(255,255,255,.9); }
 .event-block.completed .event-detail-check.checked { color: rgba(255,255,255,.62); }
 .event-block.completed .event-detail-check > span { color: #fff; }
-.event-block.completed.selected { box-shadow: inset 0 0 0 2px #fff, 0 4px 12px rgba(10,99,216,.3); }
+.event-block.completed.selected { box-shadow: inset 0 0 0 2px #fff, 0 4px 12px rgba(59,91,219,.28); }
 .event-block .resize-handle { position: absolute; z-index: 3; top: 50%; display: block; overflow: visible; width: 18px; height: 30px; margin: 0; transform: translateY(-50%); border-radius: 9px; background: transparent; touch-action: none; }
 .event-block .resize-handle::after { content: ''; position: absolute; top: 5px; bottom: 5px; left: 7px; width: 4px; border-radius: 2px; background: var(--event-color); box-shadow: 0 0 0 2px rgba(255,255,255,.9); }
 .event-block .resize-handle.start { left: -9px; }
@@ -156,14 +156,14 @@ svg { width: 22px; height: 22px; stroke-width: 1.9; }
 .form-error { margin: -4px 4px 14px; color: var(--danger); font-size: 13px; }
 .danger-button { display: flex; width: 100%; min-height: 52px; align-items: center; justify-content: center; gap: 8px; border: 0; border-radius: 16px; background: #fff; color: var(--danger); cursor: pointer; }
 .danger-button svg { width: 19px; }
-.completion-button { display: grid; grid-template-columns: 34px 1fr; width: 100%; min-height: 62px; align-items: center; gap: 10px; margin-bottom: 10px; padding: 8px 14px; border: 0; border-radius: 16px; background: #0a63d8; color: #fff; text-align: left; box-shadow: 0 8px 20px rgba(10,99,216,.18); cursor: pointer; }
+.completion-button { display: grid; grid-template-columns: 34px 1fr; width: 100%; min-height: 62px; align-items: center; gap: 10px; margin-bottom: 10px; padding: 8px 14px; border: 0; border-radius: 16px; background: #3b5bdb; color: #fff; text-align: left; box-shadow: 0 8px 20px rgba(59,91,219,.16); cursor: pointer; }
 .completion-button .completion-check { display: grid; width: 28px; height: 28px; place-items: center; border: 1.5px solid rgba(255,255,255,.82); border-radius: 50%; }
 .completion-button .completion-check svg { width: 16px; stroke-width: 2.5; }
 .completion-button > span:last-child { display: flex; flex-direction: column; min-width: 0; }
 .completion-button strong { font-size: 14px; }
 .completion-button small { margin-top: 2px; color: rgba(255,255,255,.78); font-size: 10px; font-weight: 500; }
-.completion-button.completed { border: 1px solid rgba(10,99,216,.22); background: #fff; color: #0a63d8; box-shadow: none; }
-.completion-button.completed .completion-check { border-color: #0a63d8; background: #0a63d8; color: #fff; }
+.completion-button.completed { border: 1px solid rgba(59,91,219,.22); background: #fff; color: #3b5bdb; box-shadow: none; }
+.completion-button.completed .completion-check { border-color: #3b5bdb; background: #3b5bdb; color: #fff; }
 .completion-button.completed small { color: var(--secondary); }
 
 .focus-screen { max-width: 720px; margin: 0 auto; }

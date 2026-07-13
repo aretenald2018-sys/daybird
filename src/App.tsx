@@ -71,7 +71,7 @@ const EMPTY_CREATE_LONG_PRESS_MS = 360;
 const DEFAULT_EVENT_DURATION_MINUTE = 30;
 const POINTER_DRAG_THRESHOLD = 10;
 const CLICK_SUPPRESS_MS = 700;
-const COMPLETED_EVENT_COLOR = '#0A63D8';
+const COMPLETED_EVENT_COLOR = '#3B5BDB';
 
 const EMPTY_SNAPSHOT: DayBirdSnapshot = {
   categories: [], schedules: [], overrides: [], focusSessions: [], settings: DEFAULT_SETTINGS
