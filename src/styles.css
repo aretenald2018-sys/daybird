@@ -73,8 +73,7 @@ svg { width: 22px; height: 22px; stroke-width: 1.9; }
 .event-block strong, .event-block span { display: block; overflow: hidden; white-space: nowrap; text-overflow: ellipsis; }
 .event-block strong { font-size: calc(12px * var(--font-scale)); font-weight: 700; line-height: 1.1; }
 .event-block span { margin-top: 1px; color: rgba(28,28,30,.62); font-size: 9px; font-variant-numeric: tabular-nums; }
-.event-block .event-details { display: flex; max-height: 20px; flex-wrap: wrap; align-items: center; gap: 1px 7px; overflow: hidden; color: rgba(28,28,30,.78); font-size: calc(9px * var(--font-scale)); font-variant-numeric: normal; font-weight: 600; line-height: 9px; white-space: normal; }
-.event-block .event-details.continuation-details { max-height: 36px; margin-top: 3px; }
+.event-block .event-details { display: flex; max-height: 22px; flex-wrap: wrap; align-content: flex-start; align-items: center; gap: 1px 6px; overflow: hidden; color: rgba(28,28,30,.78); font-size: calc(9px * var(--font-scale)); font-variant-numeric: normal; font-weight: 600; line-height: 9px; white-space: normal; }
 .event-block .event-detail-bullet { display: inline; min-width: 0; margin: 0; color: inherit; font: inherit; }
 .event-detail-check { display: inline-flex; min-width: 0; align-items: center; gap: 3px; padding: 0; border: 0; background: transparent; color: inherit; font: inherit; line-height: 1.15; cursor: pointer; }
 .event-detail-check > span { display: inline; flex: 0 0 auto; margin: 0; color: var(--event-color); font-size: 11px; line-height: 1; }

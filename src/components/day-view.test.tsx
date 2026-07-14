@@ -77,7 +77,7 @@ describe('DayView touch gestures', () => {
     expect(onEdit).not.toHaveBeenCalled();
   });
 
-  it('connects a multi-hour schedule and continues its details across hour rows', () => {
+  it('connects a multi-hour schedule while keeping all details together', () => {
     const occurrence: ScheduleOccurrence = {
       key: 'housework', seriesId: 'housework', originalDate: '2026-07-13', date: '2026-07-13',
       title: 'Affaires de maison',
@@ -91,9 +91,10 @@ describe('DayView touch gestures', () => {
     expect(pieces).toHaveLength(2);
     expect(parseFloat(pieces[0].style.top) + parseFloat(pieces[0].style.height)).toBe(parseFloat(pieces[1].style.top));
     expect(container.querySelectorAll('.matrix-event strong')).toHaveLength(1);
-    expect(detailGroups).toHaveLength(2);
-    expect(detailGroups.map(group => group.textContent).join(' ')).toContain('방 청소');
-    expect(detailGroups.map(group => group.textContent).join(' ')).toContain('쓰레기 버리기');
+    expect(detailGroups).toHaveLength(1);
+    expect(detailGroups[0].textContent).toContain('방 청소');
+    expect(detailGroups[0].textContent).toContain('쓰레기 버리기');
+    expect(pieces[1].querySelector('.event-details')).toBeNull();
   });
 
   it('places the current time below schedules as a marker inside its hour row', () => {

@@ -684,12 +684,7 @@ export function DayView({ date, settings, categories, occurrences, onDateChange,
             const displayStart = preview?.start ?? segment.segmentStart;
             const displayEnd = preview ? preview.start + preview.duration : segment.segmentEnd;
             const pieces = matrixPieces(displayStart, displayEnd);
-            const detailsPerPiece = pieces.length > 1 ? Math.ceil(details.length / pieces.length) : details.length;
-            return pieces.map((piece, pieceIndex) => {
-              const pieceDetails = detailsPerPiece > 0
-                ? details.slice(pieceIndex * detailsPerPiece, (pieceIndex + 1) * detailsPerPiece)
-                : [];
-              return (
+            return pieces.map(piece => (
               <div
                 key={`${segment.key}:${piece.row}`}
                 role="button"
@@ -721,9 +716,9 @@ export function DayView({ date, settings, categories, occurrences, onDateChange,
               >
                 {piece.isFirst && selectedBlockKey === segment.key && <span className="resize-handle start" aria-hidden="true" onPointerDown={event => startBlockDrag(event, segment, 'resize-start')} />}
                 {piece.isFirst && <strong>{segment.title}</strong>}
-                {!!pieceDetails.length && (
-                  <span className={`event-details${piece.isFirst ? '' : ' continuation-details'}`}>
-                    {pieceDetails.map(detail => detail.kind === 'checkbox' ? (
+                {piece.isFirst && !!details.length && (
+                  <span className="event-details">
+                    {details.map(detail => detail.kind === 'checkbox' ? (
                         <button
                           key={detail.index}
                           type="button"
@@ -745,8 +740,7 @@ export function DayView({ date, settings, categories, occurrences, onDateChange,
                 {piece.isFirst && segment.laneCount === 1 && details.length === 0 && (displayEnd - displayStart) >= 20 && <span className="event-time">{formatMinute(displayStart)}–{formatMinute(displayEnd)}</span>}
                 {piece.isLast && selectedBlockKey === segment.key && <span className="resize-handle end" aria-hidden="true" onPointerDown={event => startBlockDrag(event, segment, 'resize-end')} />}
               </div>
-              );
-            });
+            ));
           })}
 
           {dragPreview && (
