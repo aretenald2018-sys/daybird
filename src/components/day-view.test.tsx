@@ -77,6 +77,37 @@ describe('DayView touch gestures', () => {
     expect(onEdit).not.toHaveBeenCalled();
   });
 
+  it('connects a multi-hour schedule and continues its details across hour rows', () => {
+    const occurrence: ScheduleOccurrence = {
+      key: 'housework', seriesId: 'housework', originalDate: '2026-07-13', date: '2026-07-13',
+      title: 'Affaires de maison',
+      subtasks: ['ㅁ 방 청소', 'ㅁ 주방 정리', 'ㅁ 화장실 청소', 'ㅁ 싱크대 청소', 'ㅁ 원두 구매', 'ㅁ 쓰레기 버리기'],
+      categoryId: 'work', startMinute: 9 * 60, durationMinute: 120, reminderMinute: null
+    };
+    const { container } = render(<DayView {...baseProps} occurrences={[occurrence]} onAdd={vi.fn()} />);
+    const pieces = Array.from(container.querySelectorAll<HTMLElement>('[aria-label^="Affaires de maison,"]'));
+    const detailGroups = Array.from(container.querySelectorAll<HTMLElement>('.event-details'));
+
+    expect(pieces).toHaveLength(2);
+    expect(parseFloat(pieces[0].style.top) + parseFloat(pieces[0].style.height)).toBe(parseFloat(pieces[1].style.top));
+    expect(container.querySelectorAll('.matrix-event strong')).toHaveLength(1);
+    expect(detailGroups).toHaveLength(2);
+    expect(detailGroups.map(group => group.textContent).join(' ')).toContain('방 청소');
+    expect(detailGroups.map(group => group.textContent).join(' ')).toContain('쓰레기 버리기');
+  });
+
+  it('places the current time below schedules as a marker inside its hour row', () => {
+    vi.useFakeTimers();
+    vi.setSystemTime(new Date(2026, 6, 13, 9, 57));
+    const { container, getByLabelText } = render(<DayView {...baseProps} onAdd={vi.fn()} />);
+    const marker = getByLabelText('현재 시각 09:57') as HTMLElement;
+
+    expect(container.querySelector('.now-line')).toBeNull();
+    expect(marker).toHaveClass('now-marker');
+    expect(marker.style.top).toBe('144px');
+    expect(marker.style.left).toContain('95%');
+  });
+
   it('stacks overlapping plans in thinner lanes without making the hour row taller', () => {
     const occurrences: ScheduleOccurrence[] = [
       { key: 'first', seriesId: 'first', originalDate: '2026-07-13', date: '2026-07-13', title: '14시 블록', categoryId: 'work', startMinute: 14 * 60, durationMinute: 60, reminderMinute: null },
