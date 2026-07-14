@@ -3,13 +3,16 @@ import {
   Bell,
   CalendarDays,
   Check,
+  ChevronDown,
   ChevronLeft,
   ChevronRight,
+  ChevronUp,
   Clock3,
   Download,
   Focus,
   MoreHorizontal,
   Pause,
+  Pencil,
   Play,
   Plus,
   RotateCcw,
@@ -36,6 +39,7 @@ import {
   parseScheduleDetails,
   parseScheduleDetailsText,
   remainingSeconds,
+  reorderActiveCategories,
   segmentsForDate,
   startOfWeek,
   toggleScheduleDetail,
@@ -62,6 +66,7 @@ import { syncDayBirdWidgets } from './lib/widgets';
 
 type Tab = 'day' | 'week' | 'focus' | 'settings';
 type Toast = { id: number; message: string };
+type CategoryEditorState = { category: Category | null; name: string; color: string };
 const TIME_CELL_MINUTE = 10;
 const TIME_GRID_SNAP_MINUTE = 5;
 const TIME_MATRIX_COLUMNS = 6;
@@ -73,6 +78,10 @@ const POINTER_DRAG_THRESHOLD = 10;
 const CLICK_SUPPRESS_MS = 700;
 const COMPLETED_EVENT_BACKGROUND = '#DCE8FF';
 const COMPLETED_EVENT_ACCENT = '#6F8FE8';
+const CATEGORY_COLOR_PRESETS = [
+  '#FF6B64', '#FF8A65', '#F7C948', '#45C88A', '#42B9B0', '#5AA9F8',
+  '#6F8FE8', '#8D7BE8', '#A777E3', '#D66DB1', '#FF75A8', '#8D94A0'
+];
 
 const EMPTY_SNAPSHOT: DayBirdSnapshot = {
   categories: [], schedules: [], overrides: [], focusSessions: [], settings: DEFAULT_SETTINGS
@@ -762,18 +771,28 @@ export function WeekView({ date, settings, categories, occurrences, onDateChange
   const days = Array.from({ length: 7 }, (_, index) => addDays(weekStart, index));
   const startMinute = settings.dayStartHour * 60;
   const endMinute = settings.dayEndHour * 60;
-  const pxPerMinute = 0.55;
+  const pxPerMinute = 0.44;
   const categoriesMap = new Map(categories.map(item => [item.id, item]));
   const now = new Date();
   const nowMinute = now.getHours() * 60 + now.getMinutes();
   const hours = Array.from({ length: settings.dayEndHour - settings.dayStartHour + 1 }, (_, index) => settings.dayStartHour + index);
+  const selectedDay = days.includes(date) ? date : weekStart;
+  const segmentsByDay = new Map(days.map(day => [day, segmentsForDate(occurrences, day)]));
+  const selectedSegments = segmentsByDay.get(selectedDay) ?? [];
+  const weekBlockCount = Array.from(segmentsByDay.values()).reduce((total, segments) => total + segments.length, 0);
+  const weekEnd = days[6];
+  const weekStartDate = parseDateKey(weekStart);
+  const weekEndDate = parseDateKey(weekEnd);
+  const weekRangeLabel = weekStartDate.getMonth() === weekEndDate.getMonth()
+    ? `${weekStartDate.getDate()}–${weekEndDate.getDate()}일`
+    : `${weekStartDate.getMonth() + 1}.${weekStartDate.getDate()}–${weekEndDate.getMonth() + 1}.${weekEndDate.getDate()}`;
 
   return (
     <section className="screen week-screen">
-      <header className="screen-header">
+      <header className="screen-header week-screen-header">
         <div>
           <p className="eyebrow">7일 버드뷰</p>
-          <h1>{formatDate(weekStart, { month: 'long' })}<small>{parseDateKey(weekStart).getFullYear()}</small></h1>
+          <h1>{formatDate(weekStart, { month: 'long' })}<small>{weekRangeLabel}</small></h1>
         </div>
         <div className="header-actions">
           <button className="icon-button" type="button" aria-label="이전 주" onClick={() => onDateChange(addDays(date, -7))}><ChevronLeft /></button>
@@ -783,12 +802,23 @@ export function WeekView({ date, settings, categories, occurrences, onDateChange
       </header>
 
       <div className="week-card">
+        <div className="week-card-summary">
+          <span>이번 주 흐름</span>
+          <strong>{weekBlockCount}개 블록</strong>
+        </div>
         <div className="week-day-heads">
           <span />
           {days.map((day, index) => (
-            <button key={day} type="button" className={`${day === dateKey() ? 'today' : ''} ${index >= 5 ? 'weekend' : ''}`} onClick={() => onOpenDate(day)}>
+            <button
+              key={day}
+              type="button"
+              aria-pressed={day === selectedDay}
+              className={`${day === selectedDay ? 'selected' : ''} ${day === dateKey() ? 'today' : ''} ${index >= 5 ? 'weekend' : ''}`}
+              onClick={() => onDateChange(day)}
+            >
               <small>{formatDate(day, { weekday: 'narrow' })}</small>
               <strong>{parseDateKey(day).getDate()}</strong>
+              <span className="week-day-count">{segmentsByDay.get(day)?.length || ''}</span>
             </button>
           ))}
         </div>
@@ -798,9 +828,13 @@ export function WeekView({ date, settings, categories, occurrences, onDateChange
               {hours.map(hour => <span key={hour} style={{ top: `${(hour * 60 - startMinute) * pxPerMinute}px` }}>{String(hour).padStart(2, '0')}</span>)}
             </div>
             {days.map((day, index) => {
-              const segments = segmentsForDate(occurrences, day);
+              const segments = segmentsByDay.get(day) ?? [];
               return (
-                <button key={day} type="button" className={`week-column ${index >= 5 ? 'weekend' : ''} ${day === dateKey() ? 'today' : ''}`} onClick={() => onOpenDate(day)}>
+                <div
+                  key={day}
+                  className={`week-column ${index >= 5 ? 'weekend' : ''} ${day === dateKey() ? 'today' : ''} ${day === selectedDay ? 'selected' : ''}`}
+                  onClick={() => onDateChange(day)}
+                >
                   {hours.map(hour => <i key={hour} style={{ top: `${(hour * 60 - startMinute) * pxPerMinute}px` }} />)}
                   {segments.map(segment => {
                     const category = categoriesMap.get(segment.categoryId);
@@ -812,28 +846,59 @@ export function WeekView({ date, settings, categories, occurrences, onDateChange
                         ? ' compact'
                         : '';
                     return (
-                      <span
+                      <button
+                        type="button"
                         className={`week-event${titleDensity}${segment.completed ? ' completed' : ''}`}
                         key={`${segment.key}:${segment.segmentStart}`}
                         style={{
                           top: `${(segment.segmentStart - startMinute) * pxPerMinute}px`,
                           height: `${Math.max(4, durationMinute * pxPerMinute)}px`,
-                          background: segment.completed ? COMPLETED_EVENT_BACKGROUND : rgba(category?.color ?? '#8D94A0', 0.75)
-                        }}
-                        title={`${segment.title}${segment.completed ? ' 완료됨' : ''} ${formatMinute(segment.startMinute)}`}
+                          '--week-event-color': segment.completed ? COMPLETED_EVENT_ACCENT : category?.color ?? '#8D94A0',
+                          '--week-event-bg': segment.completed ? COMPLETED_EVENT_BACKGROUND : rgba(category?.color ?? '#8D94A0', 0.2)
+                        } as React.CSSProperties}
+                        aria-label={`${segment.title}${segment.completed ? ', 완료됨' : ''}, ${formatMinute(segment.segmentStart)}부터 ${formatMinute(segment.segmentEnd)}까지`}
+                        onClick={event => { event.stopPropagation(); onOpenDate(day); }}
                       >
                         <span className="week-event-title">{`${segment.completed ? '✓ ' : ''}${segment.title}`}</span>
-                      </span>
+                      </button>
                     );
                   })}
                   {day === dateKey() && nowMinute >= startMinute && nowMinute <= endMinute && <b className="week-now" style={{ top: `${(nowMinute - startMinute) * pxPerMinute}px` }} />}
-                </button>
+                </div>
               );
             })}
           </div>
         </div>
       </div>
-      <p className="week-hint">날짜나 블록을 누르면 일간 타임라인에서 자세히 편집할 수 있어요.</p>
+
+      <section className="week-agenda" aria-labelledby="week-agenda-title">
+        <header>
+          <div>
+            <span>{formatDate(selectedDay, { weekday: 'long' })}</span>
+            <h2 id="week-agenda-title">{formatDate(selectedDay, { month: 'long', day: 'numeric' })}</h2>
+          </div>
+          <strong>{selectedSegments.length ? `${selectedSegments.length}개 일정` : '비어 있음'}</strong>
+        </header>
+        <div className="week-agenda-list">
+          {selectedSegments.map(segment => {
+            const category = categoriesMap.get(segment.categoryId);
+            const eventColor = segment.completed ? COMPLETED_EVENT_ACCENT : category?.color ?? '#8D94A0';
+            return (
+              <button key={`${segment.key}:agenda:${segment.segmentStart}`} type="button" onClick={() => onOpenDate(selectedDay)}>
+                <span className="week-agenda-time">{formatMinute(segment.segmentStart)}<small>{formatMinute(segment.segmentEnd)}</small></span>
+                <i style={{ background: eventColor }} />
+                <span className="week-agenda-copy">
+                  <strong>{segment.title}</strong>
+                  <small>{category?.name ?? '기타'}{segment.completed ? ' · 완료' : ''}</small>
+                </span>
+                <ChevronRight />
+              </button>
+            );
+          })}
+          {!selectedSegments.length && <p><CalendarDays /><strong>여유 있는 하루예요</strong><span>날짜를 눌러 일간 화면에서 새 일정을 추가해 보세요.</span></p>}
+        </div>
+      </section>
+      <p className="week-hint">날짜를 고르면 아래에서 전체 일정 이름과 시간을 확인할 수 있어요.</p>
     </section>
   );
 }
@@ -955,7 +1020,7 @@ function EventEditor({ state, snapshot, onClose, onSaved }: {
             <label className="inline-category">
               <span className="category-dot" style={{ background: snapshot.categories.find(item => item.id === categoryId)?.color }} />
               <select aria-label="카테고리" value={categoryId} onChange={event => setCategoryId(event.target.value)}>
-                {snapshot.categories.filter(item => !item.archived).map(item => <option key={item.id} value={item.id}>{item.name}</option>)}
+                {snapshot.categories.filter(item => !item.archived || item.id === categoryId).map(item => <option key={item.id} value={item.id}>{item.name}</option>)}
               </select>
             </label>
             <input aria-label="일정 이름" autoFocus value={title} onInput={event => setTitle(event.currentTarget.value)} placeholder="무엇을 할까요?" />
@@ -1159,7 +1224,9 @@ function SettingsView({ snapshot, installPrompt, onInstalled, onRefresh, notify 
 }) {
   const [capability, setCapability] = useState<NotificationCapability | null>(null);
   const [recoveryInfo, setRecoveryInfo] = useState(() => getRecoveryBackupInfo());
+  const [categoryEditor, setCategoryEditor] = useState<CategoryEditorState | null>(null);
   const fileRef = useRef<HTMLInputElement>(null);
+  const activeCategories = snapshot.categories.filter(item => !item.archived);
 
   useEffect(() => { void notificationCapability().then(setCapability); }, []);
 
@@ -1168,14 +1235,49 @@ function SettingsView({ snapshot, installPrompt, onInstalled, onRefresh, notify 
     await onRefresh();
   };
 
-  const updateCategory = async (category: Category, patch: Partial<Category>) => {
-    await db.categories.update(category.id, patch);
+  const openCategoryEditor = (category: Category | null) => {
+    setCategoryEditor({ category, name: category?.name ?? '', color: category?.color ?? CATEGORY_COLOR_PRESETS[5] });
+  };
+
+  const saveCategory = async () => {
+    if (!categoryEditor) return;
+    const name = categoryEditor.name.trim();
+    if (!name) {
+      notify('카테고리 이름을 입력해 주세요.');
+      return;
+    }
+    if (categoryEditor.category) {
+      await db.categories.update(categoryEditor.category.id, { name, color: categoryEditor.color });
+      notify('카테고리를 수정했어요.');
+    } else {
+      const nextOrder = activeCategories.reduce((max, category) => Math.max(max, category.order), -1) + 1;
+      await db.categories.add({ id: id('category'), name, color: categoryEditor.color, order: nextOrder, archived: false });
+      notify('카테고리를 추가했어요.');
+    }
+    await onRefresh();
+    setCategoryEditor(null);
+  };
+
+  const moveCategory = async (categoryId: string, direction: -1 | 1) => {
+    const reordered = reorderActiveCategories(activeCategories, categoryId, direction);
+    if (reordered.every(category => activeCategories.find(item => item.id === category.id)?.order === category.order)) return;
+    await db.transaction('rw', db.categories, async () => { await db.categories.bulkPut(reordered); });
     await onRefresh();
   };
 
-  const addCategory = async () => {
-    await db.categories.add({ id: id('category'), name: '새 카테고리', color: '#5AA9F8', order: snapshot.categories.length, archived: false });
+  const deleteCategory = async (category: Category) => {
+    if (activeCategories.length <= 1) {
+      notify('카테고리는 하나 이상 필요해요.');
+      return;
+    }
+    if (!window.confirm(`'${category.name}' 카테고리를 삭제할까요? 기존 일정의 색상은 유지됩니다.`)) return;
+    const isInUse = snapshot.schedules.some(schedule => schedule.categoryId === category.id)
+      || snapshot.overrides.some(override => override.patch?.categoryId === category.id);
+    if (isInUse) await db.categories.update(category.id, { archived: true });
+    else await db.categories.delete(category.id);
     await onRefresh();
+    setCategoryEditor(null);
+    notify('카테고리를 삭제했어요.');
   };
 
   const downloadBackup = async () => {
@@ -1227,6 +1329,7 @@ function SettingsView({ snapshot, installPrompt, onInstalled, onRefresh, notify 
   };
 
   return (
+    <>
     <section className="screen settings-screen">
       <header className="screen-header"><div><p className="eyebrow">나에게 맞게</p><h1>설정<small>보이는 방식부터 알림까지</small></h1></div><SlidersHorizontal /></header>
 
@@ -1240,13 +1343,19 @@ function SettingsView({ snapshot, installPrompt, onInstalled, onRefresh, notify 
         <label><span>텍스트 위치</span><select value={snapshot.settings.textAlign} onChange={event => void updateSettings({ textAlign: event.target.value as AppSettings['textAlign'] })}><option value="left">왼쪽</option><option value="center">가운데</option></select></label>
       </div>
 
-      <div className="settings-heading-row"><h2 className="settings-title">카테고리</h2><button type="button" onClick={() => void addCategory()}><Plus />추가</button></div>
+      <div className="settings-heading-row"><div><h2 className="settings-title">카테고리</h2><p>색상과 표시 순서를 관리해요.</p></div><button type="button" onClick={() => openCategoryEditor(null)}><Plus />추가</button></div>
       <div className="settings-card category-settings">
-        {snapshot.categories.filter(item => !item.archived).map(category => (
-          <div key={category.id}>
-            <input aria-label={`${category.name} 색상`} type="color" value={category.color} onChange={event => void updateCategory(category, { color: event.target.value })} />
-            <input aria-label="카테고리 이름" value={category.name} onChange={event => void updateCategory(category, { name: event.target.value })} />
-            {snapshot.categories.length > 1 && <button type="button" aria-label={`${category.name} 보관`} onClick={() => void updateCategory(category, { archived: true })}><Trash2 /></button>}
+        {activeCategories.map((category, index) => (
+          <div className="category-row" key={category.id}>
+            <button className="category-edit-row" type="button" aria-label={`${category.name} 카테고리 편집`} onClick={() => openCategoryEditor(category)}>
+              <span className="category-swatch" style={{ background: category.color }} />
+              <span><strong>{category.name}</strong><small>일정 {snapshot.schedules.filter(item => item.categoryId === category.id).length}개</small></span>
+              <Pencil />
+            </button>
+            <div className="category-order-buttons" aria-label={`${category.name} 순서 변경`}>
+              <button type="button" aria-label={`${category.name} 위로 이동`} disabled={index === 0} onClick={() => void moveCategory(category.id, -1)}><ChevronUp /></button>
+              <button type="button" aria-label={`${category.name} 아래로 이동`} disabled={index === activeCategories.length - 1} onClick={() => void moveCategory(category.id, 1)}><ChevronDown /></button>
+            </div>
           </div>
         ))}
       </div>
@@ -1271,5 +1380,38 @@ function SettingsView({ snapshot, installPrompt, onInstalled, onRefresh, notify 
 
       <footer className="settings-footer"><div className="mini-brand"><span /><span /></div><strong>DayBird</strong><span>Version 0.1.0 · Local first</span></footer>
     </section>
+    {categoryEditor && (
+      <div className="modal-backdrop" role="presentation" onMouseDown={event => event.target === event.currentTarget && setCategoryEditor(null)}>
+        <section className="sheet category-editor" role="dialog" aria-modal="true" aria-labelledby="category-editor-title">
+          <div className="sheet-handle" />
+          <header>
+            <button type="button" className="text-button" onClick={() => setCategoryEditor(null)}>취소</button>
+            <h2 id="category-editor-title">{categoryEditor.category ? '카테고리 편집' : '새 카테고리'}</h2>
+            <button type="button" className="text-button primary" onClick={() => void saveCategory()}>저장</button>
+          </header>
+          <div className="category-preview" style={{ '--category-preview': categoryEditor.color } as React.CSSProperties}>
+            <span />
+            <div><small>미리보기</small><strong>{categoryEditor.name.trim() || '카테고리 이름'}</strong></div>
+          </div>
+          <div className="form-card category-name-card">
+            <label><span>이름</span><input aria-label="카테고리 이름" autoFocus value={categoryEditor.name} maxLength={24} onInput={event => { const name = event.currentTarget.value; setCategoryEditor(current => current ? { ...current, name } : current); }} placeholder="예: 운동, 공부, 약속" /></label>
+          </div>
+          <div className="category-color-card">
+            <h3>색상</h3>
+            <div role="group" aria-label="카테고리 색상">
+              {CATEGORY_COLOR_PRESETS.map(color => (
+                <button key={color} type="button" aria-label={`${color} 색상`} aria-pressed={categoryEditor.color.toLowerCase() === color.toLowerCase()} style={{ background: color }} onClick={() => setCategoryEditor(current => current ? { ...current, color } : current)}>
+                  {categoryEditor.color.toLowerCase() === color.toLowerCase() && <Check />}
+                </button>
+              ))}
+              <label className="custom-category-color" aria-label="사용자 지정 색상"><input type="color" value={categoryEditor.color} onChange={event => { const color = event.currentTarget.value; setCategoryEditor(current => current ? { ...current, color } : current); }} /><span>+</span></label>
+            </div>
+          </div>
+          {categoryEditor.category && <button type="button" className="category-delete-button" onClick={() => void deleteCategory(categoryEditor.category!)}><Trash2 />카테고리 삭제</button>}
+          {categoryEditor.category && <p className="category-editor-note">삭제해도 기존 일정은 원래 색상으로 남아 있어요.</p>}
+        </section>
+      </div>
+    )}
+    </>
   );
 }

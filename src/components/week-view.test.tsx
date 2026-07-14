@@ -16,7 +16,7 @@ describe('WeekView schedule labels', () => {
       }
     ];
 
-    const { container, getByText } = render(
+    const { container, getAllByText } = render(
       <WeekView
         date="2026-07-13"
         settings={DEFAULT_SETTINGS}
@@ -27,9 +27,11 @@ describe('WeekView schedule labels', () => {
       />
     );
 
-    expect(getByText('다이소 쇼핑')).toBeVisible();
-    expect(getByText('예술사 한 챕터 읽기')).toBeVisible();
-    expect(container.querySelector('[title^="다이소 쇼핑"]')).toHaveClass('compact');
-    expect(container.querySelector('[title^="예술사 한 챕터 읽기"]')).toHaveClass('micro');
+    expect(getAllByText('다이소 쇼핑')).toHaveLength(2);
+    expect(getAllByText('예술사 한 챕터 읽기')).toHaveLength(2);
+    expect(container.querySelector('[aria-label^="다이소 쇼핑,"]')).toHaveClass('compact');
+    expect(container.querySelector('[aria-label^="예술사 한 챕터 읽기,"]')).toHaveClass('micro');
+    expect(container.querySelectorAll('.week-day-heads button')).toHaveLength(7);
+    expect(container.querySelector('.week-agenda-list')).toHaveTextContent('18:00');
   });
 });

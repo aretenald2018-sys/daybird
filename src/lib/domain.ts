@@ -154,6 +154,15 @@ export const DEFAULT_CATEGORIES: Category[] = [
   { id: 'other', name: '기타', color: '#FF75A8', order: 6, archived: false }
 ];
 
+export function reorderActiveCategories(categories: Category[], categoryId: string, direction: -1 | 1): Category[] {
+  const ordered = [...categories].sort((a, b) => a.order - b.order);
+  const index = ordered.findIndex(category => category.id === categoryId);
+  const target = index + direction;
+  if (index < 0 || target < 0 || target >= ordered.length) return ordered;
+  [ordered[index], ordered[target]] = [ordered[target], ordered[index]];
+  return ordered.map((category, order) => ({ ...category, order }));
+}
+
 export function id(prefix: string): string {
   return `${prefix}_${crypto.randomUUID()}`;
 }
