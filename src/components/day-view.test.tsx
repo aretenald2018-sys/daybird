@@ -205,6 +205,29 @@ describe('DayView touch gestures', () => {
     expect(onAdd).not.toHaveBeenCalled();
   });
 
+  it('keeps tracking a block after crossing an hour boundary replaces its rendered piece', () => {
+    vi.useFakeTimers();
+    const onMove = vi.fn(async () => undefined);
+    const occurrence: ScheduleOccurrence = {
+      key: 'boundary', seriesId: 'boundary', originalDate: '2026-07-13', date: '2026-07-13',
+      title: '시간 경계 이동', categoryId: 'work', startMinute: 14 * 60 + 55, durationMinute: 30, reminderMinute: null
+    };
+    const { container } = render(<DayView {...baseProps} occurrences={[occurrence]} onAdd={vi.fn()} onMove={onMove} />);
+    const grid = container.querySelector('.timeline-grid');
+    const block = container.querySelector<HTMLElement>('[aria-label^="시간 경계 이동,"]');
+    expect(grid).not.toBeNull();
+    expect(block).not.toBeNull();
+    setMatrixBounds(grid!);
+
+    fireEvent.pointerDown(block!, { pointerId: 21, pointerType: 'touch', clientX: 340, clientY: 390, button: 0 });
+    act(() => vi.advanceTimersByTime(450));
+    fireEvent.pointerMove(window, { pointerId: 21, pointerType: 'touch', clientX: 65, clientY: 438 });
+    fireEvent.pointerUp(window, { pointerId: 21, pointerType: 'touch', clientX: 65, clientY: 438 });
+
+    expect(onMove).toHaveBeenCalledTimes(1);
+    expect(onMove).toHaveBeenCalledWith(expect.objectContaining({ key: 'boundary' }), 15 * 60, 30);
+  });
+
   it('creates a standard 30-minute event by tapping an empty time', () => {
     const onAdd = vi.fn();
     const { container } = render(<DayView {...baseProps} onAdd={onAdd} />);

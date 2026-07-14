@@ -377,6 +377,9 @@ export function DayView({ date, settings, categories, occurrences, onDateChange,
   const [selectedBlockKey, setSelectedBlockKey] = useState<string | null>(null);
   const [blockPreview, setBlockPreview] = useState<{ key: string; start: number; duration: number } | null>(null);
   const blockPreviewRef = useRef<{ key: string; start: number; duration: number } | null>(null);
+  const blockPointerMoveHandlerRef = useRef<(event: PointerEvent) => void>(() => undefined);
+  const blockPointerEndHandlerRef = useRef<(event: PointerEvent) => void>(() => undefined);
+  const blockPointerCancelHandlerRef = useRef<(event: PointerEvent) => void>(() => undefined);
 
   const updateDragPreview = (next: { start: number; end: number } | null) => {
     dragPreviewRef.current = next;
@@ -563,7 +566,7 @@ export function DayView({ date, settings, categories, occurrences, onDateChange,
     }, BLOCK_MOVE_LONG_PRESS_MS);
   };
 
-  const moveBlockDrag = (event: React.PointerEvent<HTMLElement>) => {
+  const moveBlockDrag = (event: Pick<PointerEvent, 'pointerId' | 'clientX' | 'clientY'>) => {
     const drag = blockDragRef.current;
     if (!drag || drag.pointerId !== event.pointerId) return;
     const horizontalDelta = event.clientX - drag.startX;
@@ -605,7 +608,7 @@ export function DayView({ date, settings, categories, occurrences, onDateChange,
     updateBlockPreview({ key: drag.occurrence.key, start: nextStart, duration: nextDuration });
   };
 
-  const endBlockDrag = (event: React.PointerEvent<HTMLElement>) => {
+  const endBlockDrag = (event: Pick<PointerEvent, 'pointerId'>) => {
     const drag = blockDragRef.current;
     if (!drag || drag.pointerId !== event.pointerId) return;
     if (drag.longPressTimer !== null) window.clearTimeout(drag.longPressTimer);
@@ -618,6 +621,32 @@ export function DayView({ date, settings, categories, occurrences, onDateChange,
     void lightHaptic();
     void onMove(drag.occurrence, preview.start, preview.duration);
   };
+
+  blockPointerMoveHandlerRef.current = event => {
+    const drag = blockDragRef.current;
+    if (!drag || drag.pointerId !== event.pointerId) return;
+    if (drag.state === 'moving' || drag.state === 'resizing') event.preventDefault();
+    moveBlockDrag(event);
+  };
+  blockPointerEndHandlerRef.current = event => endBlockDrag(event);
+  blockPointerCancelHandlerRef.current = event => {
+    if (blockDragRef.current?.pointerId !== event.pointerId) return;
+    clearBlockGesture();
+  };
+
+  useEffect(() => {
+    const handlePointerMove = (event: PointerEvent) => blockPointerMoveHandlerRef.current(event);
+    const handlePointerEnd = (event: PointerEvent) => blockPointerEndHandlerRef.current(event);
+    const handlePointerCancel = (event: PointerEvent) => blockPointerCancelHandlerRef.current(event);
+    window.addEventListener('pointermove', handlePointerMove, { passive: false });
+    window.addEventListener('pointerup', handlePointerEnd);
+    window.addEventListener('pointercancel', handlePointerCancel);
+    return () => {
+      window.removeEventListener('pointermove', handlePointerMove);
+      window.removeEventListener('pointerup', handlePointerEnd);
+      window.removeEventListener('pointercancel', handlePointerCancel);
+    };
+  }, []);
 
   useEffect(() => {
     if (date !== dateKey() || !scrollRef.current) return;
@@ -698,9 +727,6 @@ export function DayView({ date, settings, categories, occurrences, onDateChange,
                 } as React.CSSProperties}
                 aria-label={`${segment.title}${segment.completed ? ', 완료됨' : ''}${details.length ? `, 상세내역 ${details.map(detail => detail.text).join(', ')}` : ''}, ${formatMinute(segment.startMinute)}부터 ${formatMinute(segment.startMinute + segment.durationMinute)}까지`}
                 onPointerDown={event => startBlockDrag(event, segment, 'move')}
-                onPointerMove={moveBlockDrag}
-                onPointerUp={endBlockDrag}
-                onPointerCancel={clearBlockGesture}
                 onContextMenu={event => event.preventDefault()}
                 onClick={() => {
                   if (Date.now() < suppressClickUntilRef.current) return;
