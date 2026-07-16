@@ -193,6 +193,7 @@ final class DayBirdWidgetStore {
         bindWorkout(views, R.id.dashboard_workout_one, workouts, 0, emptyHealthGoal);
         bindWorkout(views, R.id.dashboard_workout_two, workouts, 1, emptyHealthGoal);
         bindWorkout(views, R.id.dashboard_workout_three, workouts, 2, emptyHealthGoal);
+        bindWorkout(views, R.id.dashboard_workout_four, workouts, 3, emptyHealthGoal);
 
         views.setTextViewText(R.id.dashboard_pace_change, ready && running != null ? signedPercent(running, "paceChangePct") : "—");
         views.setTextViewText(R.id.dashboard_cadence_change, ready && running != null ? signedPercent(running, "cadenceChangePct") : "—");
