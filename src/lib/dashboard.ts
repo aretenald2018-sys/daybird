@@ -54,12 +54,19 @@ export function pairingCodeFromUrl(value: string | undefined | null): string | n
   if (!value) return null;
   try {
     const url = new URL(value);
-    if (url.protocol !== 'daybird:' || url.hostname !== 'pair') return null;
+    if (!isPairDeepLinkLocation(url)) return null;
     const code = url.searchParams.get('code')?.trim();
     return code || null;
   } catch {
     return null;
   }
+}
+
+export function isPairDeepLinkLocation(
+  url: Pick<URL, 'protocol' | 'hostname' | 'pathname'>
+): boolean {
+  if (url.protocol !== 'daybird:') return false;
+  return url.hostname === 'pair' || (url.hostname === '' && url.pathname === '//pair');
 }
 
 export async function dashboardStatus(): Promise<DashboardStatus> {

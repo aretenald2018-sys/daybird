@@ -119,12 +119,18 @@ final class DayBirdDashboardSync {
     }
 
     static JSObject exchangePairingBlocking(Context context, String code) throws Exception {
-        String fcmToken = Tasks.await(FirebaseMessaging.getInstance().getToken(), 20, TimeUnit.SECONDS);
+        String fcmToken = "";
+        try {
+            fcmToken = Tasks.await(FirebaseMessaging.getInstance().getToken(), 20, TimeUnit.SECONDS);
+        } catch (Exception ignored) {
+            // Pairing must remain available while Play services or FCM registration is warming up.
+            // DayBirdMessagingService registers the token later through onNewToken.
+        }
         JSONObject body = new JSONObject()
             .put("code", code)
             .put("deviceId", DayBirdDashboardState.deviceId(context))
-            .put("deviceName", Build.MANUFACTURER + " " + Build.MODEL)
-            .put("fcmToken", fcmToken);
+            .put("deviceName", Build.MANUFACTURER + " " + Build.MODEL);
+        if (fcmToken != null && !fcmToken.isBlank()) body.put("fcmToken", fcmToken);
         JSONObject response = DayBirdDashboardHttp.post(context, "pairings/exchange", body, null);
         String customToken = response.getString("customToken");
         String ownerUid = response.getString("ownerUid");
