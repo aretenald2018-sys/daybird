@@ -1,0 +1,21 @@
+{
+  "schemaVersion": 1,
+  "revision": 7,
+  "budgetUid": "budget-owner-1",
+  "generatedAtEpochMs": 1784170800000,
+  "timezone": "Asia/Seoul",
+  "weights": { "food": 25, "health": 25, "running": 20, "spending": 20, "wine": 10 },
+  "score": 88,
+  "domains": {
+    "food": { "score": 84, "freshness": "fresh" },
+    "health": { "score": 90, "freshness": "fresh" },
+    "running": { "score": 92, "freshness": "fresh" },
+    "spending": { "score": 86, "freshness": "fresh" },
+    "wine": { "score": 82, "freshness": "delayed" }
+  },
+  "nutrition": { "actualKcal": 1840, "targetKcal": 2300, "progress": 80, "proteinG": 118, "carbsG": 210, "fatG": 48 },
+  "workouts": [{ "label": "하체", "value": "110kg × 8", "status": "3/3" }],
+  "running": { "paceChangePct": 2.8, "cadenceChangePct": 1.6, "paceSecPerKm": 328, "cadenceSpm": 176, "trend": [12, 15, 18, 17, 21] },
+  "spending": { "savings": 12400, "monthSpent": 312000, "weeklyChangePct": -6.2, "trend": [55, 48, 43, 39, 31, 27, 20] },
+  "wine": { "name": "Chianti Classico Riserva 2021", "note": "체리, 말린 허브, 가죽", "rating": 4.1 }
+}

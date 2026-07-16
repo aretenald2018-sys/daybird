@@ -7,4 +7,6 @@
     <string name="widget_agenda_description">오늘의 다음 일정을 간결하게 확인합니다</string>
     <string name="widget_timeline_description">오늘의 전체 타임라인을 확인합니다</string>
     <string name="widget_focus_description">진행 중인 집중 타이머를 확인합니다</string>
+    <string name="widget_dashboard_description">식단, 운동, 소비를 한눈에 확인합니다</string>
+    <string name="dashboard_api_base">https://budget-snowy-iota.vercel.app</string>
 </resources>

@@ -24,6 +24,8 @@ import {
   Upload
 } from 'lucide-react';
 import { registerSW } from 'virtual:pwa-register';
+import { App as CapacitorApp } from '@capacitor/app';
+import type { PluginListenerHandle } from '@capacitor/core';
 import { db, exportBackup, getRecoveryBackupInfo, importBackup, loadSnapshot, resetDatabase, restoreRecoveryBackup, saveRecoveryBackup, type DayBirdSnapshot } from './lib/db';
 import {
   DEFAULT_SETTINGS,
@@ -63,6 +65,18 @@ import {
   type NotificationCapability
 } from './lib/platform';
 import { syncDayBirdWidgets } from './lib/widgets';
+import {
+  DEFAULT_DASHBOARD_WEIGHTS,
+  dashboardStatus,
+  disconnectDashboard,
+  exchangeDashboardPairing,
+  pairingCodeFromUrl,
+  refreshDashboard,
+  resolvedDashboardWeights,
+  saveDashboardWeights,
+  type DashboardStatus,
+  type DashboardWeights
+} from './lib/dashboard';
 
 type Tab = 'day' | 'week' | 'focus' | 'settings';
 type Toast = { id: number; message: string };
@@ -122,6 +136,7 @@ export default function App() {
   const [installPrompt, setInstallPrompt] = useState<BeforeInstallPromptEvent | null>(null);
   const [needRefresh, setNeedRefresh] = useState(false);
   const updateServiceWorkerRef = useRef<(reloadPage?: boolean) => Promise<void>>(() => Promise.resolve());
+  const handledPairingRef = useRef('');
 
   const refresh = useCallback(async () => {
     const next = await loadSnapshot();
@@ -152,6 +167,36 @@ export default function App() {
     }
     return () => window.removeEventListener('beforeinstallprompt', onInstall);
   }, [notify, refresh]);
+
+  useEffect(() => {
+    if (!isNative) return;
+    let listener: PluginListenerHandle | null = null;
+    let disposed = false;
+    const handleUrl = async (url?: string) => {
+      const code = pairingCodeFromUrl(url);
+      if (!code || handledPairingRef.current === code) return;
+      handledPairingRef.current = code;
+      setTab('settings');
+      notify('가계부와 DayBird를 연결하고 있어요.');
+      try {
+        await exchangeDashboardPairing(code);
+        window.dispatchEvent(new Event('daybird-dashboard-updated'));
+        notify('종합 대시보드 연결이 완료됐어요.');
+      } catch (error) {
+        handledPairingRef.current = '';
+        notify(error instanceof Error ? error.message : 'DayBird 연결에 실패했어요.');
+      }
+    };
+    void CapacitorApp.getLaunchUrl().then(result => handleUrl(result?.url));
+    void CapacitorApp.addListener('appUrlOpen', event => void handleUrl(event.url)).then(handle => {
+      if (disposed) void handle.remove();
+      else listener = handle;
+    });
+    return () => {
+      disposed = true;
+      if (listener) void listener.remove();
+    };
+  }, [notify]);
 
   useEffect(() => {
     if (!ready) return;
@@ -1267,10 +1312,30 @@ function SettingsView({ snapshot, installPrompt, onInstalled, onRefresh, notify 
   const [capability, setCapability] = useState<NotificationCapability | null>(null);
   const [recoveryInfo, setRecoveryInfo] = useState(() => getRecoveryBackupInfo());
   const [categoryEditor, setCategoryEditor] = useState<CategoryEditorState | null>(null);
+  const [dashboard, setDashboard] = useState<DashboardStatus | null>(null);
+  const [dashboardWeights, setDashboardWeights] = useState<DashboardWeights>(DEFAULT_DASHBOARD_WEIGHTS);
+  const [dashboardBusy, setDashboardBusy] = useState(false);
   const fileRef = useRef<HTMLInputElement>(null);
   const activeCategories = snapshot.categories.filter(item => !item.archived);
 
   useEffect(() => { void notificationCapability().then(setCapability); }, []);
+  const loadDashboardStatus = useCallback(async () => {
+    if (!isNative) return;
+    try {
+      const status = await dashboardStatus();
+      setDashboard(status);
+      setDashboardWeights(resolvedDashboardWeights(status));
+    } catch (error) {
+      setDashboard(current => current ? { ...current, lastError: error instanceof Error ? error.message : '상태 확인 실패' } : current);
+    }
+  }, []);
+
+  useEffect(() => {
+    void loadDashboardStatus();
+    const reload = () => void loadDashboardStatus();
+    window.addEventListener('daybird-dashboard-updated', reload);
+    return () => window.removeEventListener('daybird-dashboard-updated', reload);
+  }, [loadDashboardStatus]);
 
   const updateSettings = async (patch: Partial<AppSettings>) => {
     await db.settings.update('app', patch);
@@ -1370,6 +1435,60 @@ function SettingsView({ snapshot, installPrompt, onInstalled, onRefresh, notify 
     onInstalled();
   };
 
+  const updateDashboardWeight = (key: keyof DashboardWeights, value: number) => {
+    setDashboardWeights(current => ({ ...current, [key]: Math.max(0, Math.min(100, Math.round(value || 0))) }));
+  };
+
+  const persistDashboardWeights = async () => {
+    const total = Object.values(dashboardWeights).reduce((sum, value) => sum + value, 0);
+    if (total !== 100) {
+      notify(`가중치 합계를 100으로 맞춰 주세요. 현재 ${total}`);
+      return;
+    }
+    setDashboardBusy(true);
+    try {
+      const status = await saveDashboardWeights(dashboardWeights);
+      setDashboard(status);
+      notify('대시보드 가중치를 저장했어요.');
+    } catch (error) {
+      notify(error instanceof Error ? error.message : '가중치를 저장하지 못했어요.');
+    } finally {
+      setDashboardBusy(false);
+    }
+  };
+
+  const requestDashboardRefresh = async () => {
+    setDashboardBusy(true);
+    try {
+      setDashboard(await refreshDashboard());
+      notify('최신 대시보드를 확인했어요.');
+    } catch (error) {
+      notify(error instanceof Error ? error.message : '대시보드를 갱신하지 못했어요.');
+    } finally {
+      setDashboardBusy(false);
+    }
+  };
+
+  const removeDashboardConnection = async () => {
+    if (!window.confirm('가계부와 DayBird 연결을 해제할까요?')) return;
+    setDashboardBusy(true);
+    try {
+      const status = await disconnectDashboard();
+      setDashboard(status);
+      setDashboardWeights(DEFAULT_DASHBOARD_WEIGHTS);
+      notify('DayBird 연결을 해제했어요.');
+    } catch (error) {
+      notify(error instanceof Error ? error.message : '연결을 해제하지 못했어요.');
+    } finally {
+      setDashboardBusy(false);
+    }
+  };
+
+  const dashboardWeightTotal = Object.values(dashboardWeights).reduce((sum, value) => sum + value, 0);
+  const dashboardLastSync = dashboard?.lastSuccessEpochMs
+    ? new Intl.DateTimeFormat('ko-KR', { month: 'numeric', day: 'numeric', hour: '2-digit', minute: '2-digit' }).format(new Date(dashboard.lastSuccessEpochMs))
+    : '아직 동기화 전';
+
   return (
     <>
     <section className="screen settings-screen">
@@ -1409,6 +1528,33 @@ function SettingsView({ snapshot, installPrompt, onInstalled, onRefresh, notify 
         {!isNative && <button type="button" onClick={() => void install()}><Download /><span><strong>DayBird 설치</strong><small>PWA를 홈 화면 앱처럼 사용</small></span><ChevronRight /></button>}
         {!isNative && <a href={`${import.meta.env.BASE_URL}downloads/daybird.apk`} download><Download /><span><strong>Android APK</strong><small>서명된 최신 버전 다운로드</small></span><ChevronRight /></a>}
       </div>
+
+      {isNative && <>
+        <h2 className="settings-title">종합 대시보드</h2>
+        <div className="dashboard-settings-card">
+          <div className="dashboard-connection-head">
+            <span className={dashboard?.connected ? 'is-connected' : ''}>DB</span>
+            <div><strong>{dashboard?.connected ? '가계부와 연결됨' : '가계부에서 연결 필요'}</strong><small>{dashboard?.connected ? `리비전 ${dashboard.revision || '—'} · ${dashboardLastSync}` : '가계부 설정의 DayBird 연결 버튼을 눌러 주세요.'}</small></div>
+            <i className={dashboard?.connected ? 'is-connected' : ''} />
+          </div>
+          {dashboard?.connected && <>
+            <div className="dashboard-weight-heading"><span>총점 가중치</span><b className={dashboardWeightTotal === 100 ? 'is-valid' : ''}>{dashboardWeightTotal}/100</b></div>
+            <div className="dashboard-weight-grid">
+              {([
+                ['food', '음식'], ['health', '헬스'], ['running', '러닝'], ['spending', '소비'], ['wine', '와인']
+              ] as [keyof DashboardWeights, string][]).map(([key, label]) => (
+                <label key={key}><span>{label}</span><input type="number" min="0" max="100" value={dashboardWeights[key]} onChange={event => updateDashboardWeight(key, Number(event.target.value))} /></label>
+              ))}
+            </div>
+            <div className="dashboard-settings-actions">
+              <button type="button" disabled={dashboardBusy} onClick={() => void requestDashboardRefresh()}>지금 새로고침</button>
+              <button type="button" disabled={dashboardBusy || dashboardWeightTotal !== 100} onClick={() => void persistDashboardWeights()}>가중치 저장</button>
+            </div>
+            <button className="dashboard-disconnect" type="button" disabled={dashboardBusy} onClick={() => void removeDashboardConnection()}>이 기기 연결 해제</button>
+          </>}
+          {!!dashboard?.lastError && <p className="dashboard-sync-error">최근 오류: {dashboard.lastError}</p>}
+        </div>
+      </>}
 
       <h2 className="settings-title">내 데이터</h2>
       <div className="settings-card action-settings">
