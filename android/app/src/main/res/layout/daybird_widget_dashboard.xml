@@ -32,7 +32,7 @@
     </LinearLayout>
 
     <LinearLayout android:layout_width="match_parent" android:layout_height="120dp" android:layout_marginTop="10dp" android:orientation="horizontal">
-        <LinearLayout android:layout_width="0dp" android:layout_height="match_parent" android:layout_weight="1" android:background="@drawable/widget_dashboard_card" android:orientation="vertical" android:padding="13dp">
+        <LinearLayout android:id="@+id/dashboard_food_card" android:layout_width="0dp" android:layout_height="match_parent" android:layout_weight="1" android:background="@drawable/widget_dashboard_card" android:orientation="vertical" android:padding="13dp">
             <TextView android:layout_width="match_parent" android:layout_height="wrap_content" android:text="일일 음식 섭취" android:textColor="#222329" android:textSize="12sp" android:textStyle="bold" />
             <LinearLayout android:layout_width="match_parent" android:layout_height="0dp" android:layout_weight="1" android:gravity="center_vertical" android:orientation="horizontal">
                 <TextView android:id="@+id/dashboard_food_percent" android:layout_width="wrap_content" android:layout_height="wrap_content" android:text="—" android:textColor="#25262A" android:textSize="24sp" android:textStyle="bold" />
@@ -43,7 +43,7 @@
             </LinearLayout>
             <ProgressBar android:id="@+id/dashboard_food_progress" style="?android:attr/progressBarStyleHorizontal" android:layout_width="match_parent" android:layout_height="7dp" android:indeterminate="false" android:max="100" android:progress="0" android:progressDrawable="@drawable/widget_dashboard_progress" />
         </LinearLayout>
-        <LinearLayout android:layout_width="0dp" android:layout_height="match_parent" android:layout_marginStart="10dp" android:layout_weight="1" android:background="@drawable/widget_dashboard_card" android:orientation="vertical" android:padding="13dp">
+        <LinearLayout android:id="@+id/dashboard_health_card" android:layout_width="0dp" android:layout_height="match_parent" android:layout_marginStart="10dp" android:layout_weight="1" android:background="@drawable/widget_dashboard_card" android:orientation="vertical" android:padding="13dp">
             <TextView android:id="@+id/dashboard_health_title" android:layout_width="match_parent" android:layout_height="wrap_content" android:text="주간 헬스 목표" android:textColor="#222329" android:textSize="12sp" android:textStyle="bold" />
             <TextView android:id="@+id/dashboard_workout_one" android:layout_width="match_parent" android:layout_height="0dp" android:layout_weight="1" android:gravity="center_vertical" android:ellipsize="end" android:maxLines="1" android:text="연결 대기" android:textColor="#45474F" android:textSize="9sp" />
             <TextView android:id="@+id/dashboard_workout_two" android:layout_width="match_parent" android:layout_height="0dp" android:layout_weight="1" android:gravity="center_vertical" android:ellipsize="end" android:maxLines="1" android:text="연결 대기" android:textColor="#45474F" android:textSize="9sp" />
@@ -53,7 +53,7 @@
     </LinearLayout>
 
     <LinearLayout android:layout_width="match_parent" android:layout_height="106dp" android:layout_marginTop="10dp" android:orientation="horizontal">
-        <LinearLayout android:layout_width="0dp" android:layout_height="match_parent" android:layout_weight="1" android:background="@drawable/widget_dashboard_card" android:orientation="vertical" android:padding="13dp">
+        <LinearLayout android:id="@+id/dashboard_running_card" android:layout_width="0dp" android:layout_height="match_parent" android:layout_weight="1" android:background="@drawable/widget_dashboard_card" android:orientation="vertical" android:padding="13dp">
             <TextView android:layout_width="match_parent" android:layout_height="wrap_content" android:text="러닝 변화" android:textColor="#222329" android:textSize="12sp" android:textStyle="bold" />
             <LinearLayout android:layout_width="match_parent" android:layout_height="0dp" android:layout_weight="1" android:gravity="center_vertical" android:orientation="horizontal">
                 <LinearLayout android:layout_width="0dp" android:layout_height="wrap_content" android:layout_weight="1" android:orientation="vertical"><TextView android:layout_width="wrap_content" android:layout_height="wrap_content" android:text="페이스" android:textColor="#71747C" android:textSize="9sp" /><TextView android:id="@+id/dashboard_pace_change" android:layout_width="wrap_content" android:layout_height="wrap_content" android:text="—" android:textColor="#26AF68" android:textSize="15sp" android:textStyle="bold" /></LinearLayout>
@@ -62,7 +62,7 @@
             <ImageView android:id="@+id/dashboard_running_chart" android:layout_width="match_parent" android:layout_height="20dp" android:contentDescription="러닝 변화 그래프" android:scaleType="fitXY" />
             <TextView android:id="@+id/dashboard_running_detail" android:layout_width="match_parent" android:layout_height="wrap_content" android:ellipsize="end" android:maxLines="1" android:text="러닝 데이터 필요" android:textColor="#6C6F78" android:textSize="9sp" />
         </LinearLayout>
-        <LinearLayout android:layout_width="0dp" android:layout_height="match_parent" android:layout_marginStart="10dp" android:layout_weight="1" android:background="@drawable/widget_dashboard_card" android:orientation="vertical" android:padding="13dp">
+        <LinearLayout android:id="@+id/dashboard_spending_card" android:layout_width="0dp" android:layout_height="match_parent" android:layout_marginStart="10dp" android:layout_weight="1" android:background="@drawable/widget_dashboard_card" android:orientation="vertical" android:padding="13dp">
             <TextView android:layout_width="match_parent" android:layout_height="wrap_content" android:text="소비 추이" android:textColor="#222329" android:textSize="12sp" android:textStyle="bold" />
             <TextView android:layout_width="match_parent" android:layout_height="wrap_content" android:layout_marginTop="7dp" android:text="지난달 오늘 대비" android:textColor="#71747C" android:textSize="9sp" />
             <TextView android:id="@+id/dashboard_savings" android:layout_width="match_parent" android:layout_height="wrap_content" android:text="—" android:textColor="#26AF68" android:textSize="18sp" android:textStyle="bold" />
@@ -71,7 +71,7 @@
         </LinearLayout>
     </LinearLayout>
 
-    <LinearLayout android:layout_width="match_parent" android:layout_height="87dp" android:layout_marginTop="10dp" android:background="@drawable/widget_dashboard_card" android:orientation="horizontal" android:padding="11dp">
+    <LinearLayout android:id="@+id/dashboard_wine_card" android:layout_width="match_parent" android:layout_height="87dp" android:layout_marginTop="10dp" android:background="@drawable/widget_dashboard_card" android:orientation="horizontal" android:padding="11dp">
         <ImageView android:id="@+id/dashboard_wine_image" android:layout_width="54dp" android:layout_height="match_parent" android:layout_marginEnd="11dp" android:contentDescription="최근 와인 라벨" android:scaleType="centerCrop" android:visibility="gone" />
         <LinearLayout android:layout_width="0dp" android:layout_height="match_parent" android:layout_weight="1" android:orientation="vertical">
             <TextView android:layout_width="match_parent" android:layout_height="wrap_content" android:text="와인 노트" android:textColor="#222329" android:textSize="12sp" android:textStyle="bold" />

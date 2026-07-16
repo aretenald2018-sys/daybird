@@ -25,6 +25,12 @@
                 <data android:scheme="daybird" android:host="pair" />
             </intent-filter>
         </activity>
+        <activity
+            android:name=".WidgetLinkActivity"
+            android:excludeFromRecents="true"
+            android:exported="false"
+            android:noHistory="true"
+            android:theme="@style/WidgetLinkTheme" />
 
         <provider
             android:name="androidx.core.content.FileProvider"

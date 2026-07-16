@@ -221,6 +221,11 @@ final class DayBirdWidgetStore {
         views.setViewVisibility(R.id.dashboard_wine_image, wineImage == null ? View.GONE : View.VISIBLE);
         if (wineImage != null) views.setImageViewBitmap(R.id.dashboard_wine_image, wineImage);
         views.setOnClickPendingIntent(R.id.dashboard_widget_root, openApp(context, 204));
+        views.setOnClickPendingIntent(R.id.dashboard_food_card, WidgetLinkActivity.pendingIntent(context, 205, DayBirdWidgetLinks.FOOD));
+        views.setOnClickPendingIntent(R.id.dashboard_health_card, WidgetLinkActivity.pendingIntent(context, 206, DayBirdWidgetLinks.HEALTH));
+        views.setOnClickPendingIntent(R.id.dashboard_running_card, WidgetLinkActivity.pendingIntent(context, 207, DayBirdWidgetLinks.RUNNING));
+        views.setOnClickPendingIntent(R.id.dashboard_spending_card, WidgetLinkActivity.pendingIntent(context, 208, DayBirdWidgetLinks.SPENDING));
+        views.setOnClickPendingIntent(R.id.dashboard_wine_card, WidgetLinkActivity.pendingIntent(context, 209, DayBirdWidgetLinks.WINE));
         manager.updateAppWidget(widgetId, views);
     }
 
