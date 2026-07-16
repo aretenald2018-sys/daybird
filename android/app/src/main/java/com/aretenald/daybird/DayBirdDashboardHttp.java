@@ -10,6 +10,7 @@ import java.io.InputStreamReader;
 import java.io.OutputStream;
 import java.net.HttpURLConnection;
 import java.net.URL;
+import java.net.URLEncoder;
 import java.nio.charset.StandardCharsets;
 
 final class DayBirdDashboardHttp {
@@ -17,7 +18,8 @@ final class DayBirdDashboardHttp {
 
     static JSONObject post(Context context, String path, JSONObject body, String idToken) throws Exception {
         String base = context.getString(R.string.dashboard_api_base).replaceAll("/+$", "");
-        HttpURLConnection connection = (HttpURLConnection) new URL(base + "/api/daybird/" + path).openConnection();
+        String action = URLEncoder.encode(path, StandardCharsets.UTF_8.name());
+        HttpURLConnection connection = (HttpURLConnection) new URL(base + "/api/daybird?action=" + action).openConnection();
         connection.setRequestMethod("POST");
         connection.setConnectTimeout(12000);
         connection.setReadTimeout(25000);
