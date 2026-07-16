@@ -160,7 +160,8 @@ final class DayBirdWidgetStore {
         boolean ready = dashboard != null;
         JSONObject domains = ready ? dashboard.optJSONObject("domains") : null;
         JSONObject nutrition = ready ? dashboard.optJSONObject("nutrition") : null;
-        JSONArray workouts = ready ? dashboard.optJSONArray("workouts") : null;
+        JSONObject healthGoal = ready ? dashboard.optJSONObject("healthGoal") : null;
+        JSONArray workouts = healthGoal == null ? (ready ? dashboard.optJSONArray("workouts") : null) : healthGoal.optJSONArray("items");
         JSONObject running = ready ? dashboard.optJSONObject("running") : null;
         JSONObject spending = ready ? dashboard.optJSONObject("spending") : null;
         JSONObject wine = ready ? dashboard.optJSONObject("wine") : null;
@@ -185,9 +186,13 @@ final class DayBirdWidgetStore {
             ? "단백질 " + number(nutrition, "proteinG") + "g · 탄수 " + number(nutrition, "carbsG") + "g · 지방 " + number(nutrition, "fatG") + "g"
             : "식단 데이터 필요");
 
-        bindWorkout(views, R.id.dashboard_workout_one, workouts, 0);
-        bindWorkout(views, R.id.dashboard_workout_two, workouts, 1);
-        bindWorkout(views, R.id.dashboard_workout_three, workouts, 2);
+        String healthTitle = compact ? "헬스 목표" : "주간 헬스 목표";
+        if (healthGoal != null && healthGoal.optInt("seasonWeek", 0) > 0) healthTitle += " · " + healthGoal.optInt("seasonWeek") + "주차";
+        views.setTextViewText(R.id.dashboard_health_title, healthTitle);
+        String emptyHealthGoal = healthGoal == null || "missing".equals(healthGoal.optString("state")) ? "시즌 목표를 설정해 주세요" : "이번 주 목표 없음";
+        bindWorkout(views, R.id.dashboard_workout_one, workouts, 0, emptyHealthGoal);
+        bindWorkout(views, R.id.dashboard_workout_two, workouts, 1, emptyHealthGoal);
+        bindWorkout(views, R.id.dashboard_workout_three, workouts, 2, emptyHealthGoal);
 
         views.setTextViewText(R.id.dashboard_pace_change, ready && running != null ? signedPercent(running, "paceChangePct") : "—");
         views.setTextViewText(R.id.dashboard_cadence_change, ready && running != null ? signedPercent(running, "cadenceChangePct") : "—");
@@ -196,10 +201,17 @@ final class DayBirdWidgetStore {
             ? paceText(running.optInt("paceSecPerKm", 0)) + " · " + (running.optInt("cadenceSpm", 0) > 0 ? running.optInt("cadenceSpm") + " spm" : "케이던스 —")
             : "러닝 데이터 필요");
 
-        views.setTextViewText(R.id.dashboard_savings, ready && spending != null && !spending.isNull("savings") ? won(spending.optLong("savings")) : "—");
-        views.setImageViewBitmap(R.id.dashboard_spending_chart, spendingChart(context, spending == null ? null : spending.optJSONArray("trend")));
+        long samePeriodDifference = spending == null ? 0 : spending.optLong("samePeriodDifference", 0);
+        boolean hasComparison = ready && spending != null && !spending.isNull("samePeriodDifference");
+        views.setTextViewText(R.id.dashboard_savings, hasComparison ? comparedWon(samePeriodDifference) : "—");
+        views.setTextColor(R.id.dashboard_savings, Color.parseColor(samePeriodDifference >= 0 ? "#26AF68" : "#E05252"));
+        views.setImageViewBitmap(R.id.dashboard_spending_chart, spendingComparisonChart(
+            context,
+            spending == null ? null : spending.optJSONArray("currentCumulativeTrend"),
+            spending == null ? null : spending.optJSONArray("previousCumulativeTrend")
+        ));
         views.setTextViewText(R.id.dashboard_spending_detail, ready && spending != null ? "이번달 " + wonAmount(spending.optLong("monthSpent")) : "가계부 데이터 필요");
-        views.setTextViewText(R.id.dashboard_week_change, ready && spending != null ? signedPercent(spending, "weeklyChangePct") : "—");
+        views.setTextViewText(R.id.dashboard_week_change, ready && spending != null ? spendingChangeText(spending) : "—");
 
         views.setTextViewText(R.id.dashboard_wine_name, ready && wine != null ? text(wine, "name", "와인 기록 없음") : "와인 데이터 필요");
         views.setTextViewText(R.id.dashboard_wine_note, ready && wine != null ? text(wine, "note", "최근 테이스팅을 기록해 보세요") : "테이스팅 노트 필요");
@@ -229,10 +241,10 @@ final class DayBirdWidgetStore {
         }
     }
 
-    private static void bindWorkout(RemoteViews views, int viewId, JSONArray workouts, int index) {
+    private static void bindWorkout(RemoteViews views, int viewId, JSONArray workouts, int index, String emptyMessage) {
         JSONObject workout = workouts == null ? null : workouts.optJSONObject(index);
         if (workout == null) {
-            views.setTextViewText(viewId, "연결 대기");
+            views.setTextViewText(viewId, index == 0 ? emptyMessage : "—");
             return;
         }
         views.setTextViewText(viewId, text(workout, "label", "운동") + "   " + text(workout, "value", "—") + "   " + text(workout, "status", ""));
@@ -252,14 +264,22 @@ final class DayBirdWidgetStore {
         return String.format(Locale.KOREAN, "%+.1f%% %s", value, value >= 0 ? "↗" : "↘");
     }
 
+    private static String spendingChangeText(JSONObject spending) {
+        if (spending == null || spending.isNull("samePeriodChangePct")) return "비교 기록 없음";
+        double value = spending.optDouble("samePeriodChangePct", Double.NaN);
+        if (!Double.isFinite(value)) return "비교 기록 없음";
+        if (Math.abs(value) < 0.05) return "지난달과 동일";
+        return String.format(Locale.KOREAN, "%.1f%% %s", Math.abs(value), value < 0 ? "덜 씀" : "더 씀");
+    }
+
     private static String paceText(int seconds) {
         if (seconds <= 0) return "페이스 —";
         return String.format(Locale.KOREAN, "%d'%02d\"/km", seconds / 60, seconds % 60);
     }
 
-    private static String won(long value) {
-        String suffix = value >= 0 ? " 절약" : " 초과";
-        return wonAmount(Math.abs(value)) + suffix;
+    private static String comparedWon(long value) {
+        if (value == 0) return "지난달과 동일";
+        return wonAmount(Math.abs(value)) + (value > 0 ? " 덜 씀" : " 더 씀");
     }
 
     private static String wonAmount(long value) {
@@ -334,24 +354,35 @@ final class DayBirdWidgetStore {
         return bitmap;
     }
 
-    private static Bitmap spendingChart(Context context, JSONArray values) {
+    private static Bitmap spendingComparisonChart(Context context, JSONArray current, JSONArray previous) {
         int width = dp(context, 140);
         int height = dp(context, 22);
         Bitmap bitmap = Bitmap.createBitmap(width, height, Bitmap.Config.ARGB_8888);
-        if (values == null || values.length() == 0) return bitmap;
+        int count = Math.min(current == null ? 0 : current.length(), previous == null ? 0 : previous.length());
+        if (count < 2) return bitmap;
         Canvas canvas = new Canvas(bitmap);
         double max = 1;
-        for (int index = 0; index < values.length(); index++) max = Math.max(max, values.optDouble(index, 0));
-        float gap = dp(context, 3);
-        float barWidth = Math.max(dp(context, 3), (width - gap * (values.length() + 1)) / values.length());
-        Paint bars = new Paint(Paint.ANTI_ALIAS_FLAG);
-        bars.setColor(Color.parseColor("#D6E7FB"));
-        for (int index = 0; index < values.length(); index++) {
-            float barHeight = (float) ((height - dp(context, 3)) * values.optDouble(index, 0) / max);
-            float left = gap + index * (barWidth + gap);
-            canvas.drawRoundRect(left, height - barHeight, left + barWidth, height, barWidth / 2, barWidth / 2, bars);
-        }
+        for (int index = 0; index < count; index++) max = Math.max(max, Math.max(current.optDouble(index, 0), previous.optDouble(index, 0)));
+        drawComparisonLine(context, canvas, current, count, max, width, height, Color.parseColor("#3187F5"), dp(context, 2));
+        drawComparisonLine(context, canvas, previous, count, max, width, height, Color.parseColor("#B9C0CC"), dp(context, 1));
         return bitmap;
+    }
+
+    private static void drawComparisonLine(Context context, Canvas canvas, JSONArray values, int count, double max, int width, int height, int color, float strokeWidth) {
+        Path path = new Path();
+        float inset = dp(context, 2);
+        for (int index = 0; index < count; index++) {
+            float x = inset + (width - inset * 2) * index / Math.max(1, count - 1);
+            float y = (float) (height - inset - (height - inset * 2) * values.optDouble(index, 0) / max);
+            if (index == 0) path.moveTo(x, y); else path.lineTo(x, y);
+        }
+        Paint paint = new Paint(Paint.ANTI_ALIAS_FLAG);
+        paint.setColor(color);
+        paint.setStyle(Paint.Style.STROKE);
+        paint.setStrokeWidth(strokeWidth);
+        paint.setStrokeCap(Paint.Cap.ROUND);
+        paint.setStrokeJoin(Paint.Join.ROUND);
+        canvas.drawPath(path, paint);
     }
 
     private static int dp(Context context, int value) {
