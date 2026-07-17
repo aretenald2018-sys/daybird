@@ -14,8 +14,28 @@
     "wine": { "score": 82, "freshness": "delayed" }
   },
   "nutrition": { "actualKcal": 1840, "targetKcal": 2300, "progress": 80, "proteinG": 118, "carbsG": 210, "fatG": 48 },
-  "workouts": [{ "label": "하체", "value": "110kg × 8", "status": "3/3" }],
-  "running": { "paceChangePct": 2.8, "cadenceChangePct": 1.6, "paceSecPerKm": 328, "cadenceSpm": 176, "trend": [12, 15, 18, 17, 21] },
-  "spending": { "savings": 12400, "monthSpent": 312000, "weeklyChangePct": -6.2, "trend": [55, 48, 43, 39, 31, 27, 20] },
+  "workouts": [{ "label": "하체", "value": "110kg × 8", "status": "3/3", "state": "done" }],
+  "running": {
+    "paceChangePct": 2.8,
+    "cadenceChangePct": 1.6,
+    "paceSecPerKm": 328,
+    "cadenceSpm": 176,
+    "trend": [12, 15, 18, 17, 21],
+    "records": [
+      { "dateKey": "2026-07-16", "distanceKm": 8.2, "paceSecPerKm": 328, "cadenceSpm": 176 },
+      { "dateKey": "2026-07-14", "distanceKm": 6.0, "paceSecPerKm": 332, "cadenceSpm": 174 },
+      { "dateKey": "2026-07-12", "distanceKm": 10.0, "paceSecPerKm": 341, "cadenceSpm": 172 },
+      { "dateKey": "2026-07-09", "distanceKm": 5.2, "paceSecPerKm": 326, "cadenceSpm": 178 },
+      { "dateKey": "2026-07-07", "distanceKm": 7.4, "paceSecPerKm": 338, "cadenceSpm": 171 }
+    ]
+  },
+  "spending": {
+    "savings": 12400,
+    "monthSpent": 312000,
+    "weeklyChangePct": -6.2,
+    "trend": [55, 48, 43, 39, 31, 27, 20],
+    "twoWeek": { "startDate": "2026-07-06", "endDate": "2026-07-19", "spent": 132000, "target": 420000, "todaySpent": 18000, "todayTarget": 30000 }
+  },
+  "points": { "state": "ready", "label": "와인구매 포인트", "balance": 12300, "earnedTwoWeek": 4200 },
   "wine": { "name": "Chianti Classico Riserva 2021", "note": "체리, 말린 허브, 가죽", "rating": 4.1 }
 }

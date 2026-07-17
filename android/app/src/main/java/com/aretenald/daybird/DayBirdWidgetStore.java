@@ -40,6 +40,7 @@ final class DayBirdWidgetStore {
     private static final int[] TIMELINE_COLORS = { R.id.timeline_color_1, R.id.timeline_color_2, R.id.timeline_color_3, R.id.timeline_color_4, R.id.timeline_color_5, R.id.timeline_color_6 };
     private static final int[] TIMELINE_TIMES = { R.id.timeline_time_1, R.id.timeline_time_2, R.id.timeline_time_3, R.id.timeline_time_4, R.id.timeline_time_5, R.id.timeline_time_6 };
     private static final int[] TIMELINE_TITLES = { R.id.timeline_title_1, R.id.timeline_title_2, R.id.timeline_title_3, R.id.timeline_title_4, R.id.timeline_title_5, R.id.timeline_title_6 };
+    private static final int[] DASHBOARD_RUNNING_RECORDS = { R.id.dashboard_running_record_1, R.id.dashboard_running_record_2, R.id.dashboard_running_record_3, R.id.dashboard_running_record_4, R.id.dashboard_running_record_5 };
 
     private DayBirdWidgetStore() {}
 
@@ -150,8 +151,8 @@ final class DayBirdWidgetStore {
     }
 
     static void renderDashboard(Context context, AppWidgetManager manager, int widgetId) {
-        int minHeight = widgetOptions(manager, widgetId).getInt(AppWidgetManager.OPTION_APPWIDGET_MIN_HEIGHT, 500);
-        boolean compact = minHeight < 450;
+        int minHeight = widgetOptions(manager, widgetId).getInt(AppWidgetManager.OPTION_APPWIDGET_MIN_HEIGHT, 620);
+        boolean compact = minHeight < 570;
         int layoutId = compact
             ? R.layout.daybird_widget_dashboard_compact
             : R.layout.daybird_widget_dashboard;
@@ -164,6 +165,7 @@ final class DayBirdWidgetStore {
         JSONArray workouts = healthGoal == null ? (ready ? dashboard.optJSONArray("workouts") : null) : healthGoal.optJSONArray("items");
         JSONObject running = ready ? dashboard.optJSONObject("running") : null;
         JSONObject spending = ready ? dashboard.optJSONObject("spending") : null;
+        JSONObject points = ready ? dashboard.optJSONObject("points") : null;
         JSONObject wine = ready ? dashboard.optJSONObject("wine") : null;
 
         views.setTextViewText(R.id.dashboard_date, new SimpleDateFormat("M월 d일 · 오늘 상태 요약", Locale.KOREAN).format(new Date()));
@@ -190,29 +192,16 @@ final class DayBirdWidgetStore {
         if (healthGoal != null && healthGoal.optInt("seasonWeek", 0) > 0) healthTitle += " · " + healthGoal.optInt("seasonWeek") + "주차";
         views.setTextViewText(R.id.dashboard_health_title, healthTitle);
         String emptyHealthGoal = healthGoal == null || "missing".equals(healthGoal.optString("state")) ? "시즌 목표를 설정해 주세요" : "이번 주 목표 없음";
-        bindWorkout(views, R.id.dashboard_workout_one, workouts, 0, emptyHealthGoal);
-        bindWorkout(views, R.id.dashboard_workout_two, workouts, 1, emptyHealthGoal);
-        bindWorkout(views, R.id.dashboard_workout_three, workouts, 2, emptyHealthGoal);
-        bindWorkout(views, R.id.dashboard_workout_four, workouts, 3, emptyHealthGoal);
+        bindWorkout(context, views, R.id.dashboard_workout_one, workouts, 0, emptyHealthGoal);
+        bindWorkout(context, views, R.id.dashboard_workout_two, workouts, 1, emptyHealthGoal);
+        bindWorkout(context, views, R.id.dashboard_workout_three, workouts, 2, emptyHealthGoal);
+        bindWorkout(context, views, R.id.dashboard_workout_four, workouts, 3, emptyHealthGoal);
 
-        views.setTextViewText(R.id.dashboard_pace_change, ready && running != null ? signedPercent(running, "paceChangePct") : "—");
-        views.setTextViewText(R.id.dashboard_cadence_change, ready && running != null ? signedPercent(running, "cadenceChangePct") : "—");
-        views.setImageViewBitmap(R.id.dashboard_running_chart, lineChart(context, running == null ? null : running.optJSONArray("trend"), Color.parseColor("#3187F5")));
-        views.setTextViewText(R.id.dashboard_running_detail, ready && running != null
-            ? paceText(running.optInt("paceSecPerKm", 0)) + " · " + (running.optInt("cadenceSpm", 0) > 0 ? running.optInt("cadenceSpm") + " spm" : "케이던스 —")
-            : "러닝 데이터 필요");
-
-        long samePeriodDifference = spending == null ? 0 : spending.optLong("samePeriodDifference", 0);
-        boolean hasComparison = ready && spending != null && !spending.isNull("samePeriodDifference");
-        views.setTextViewText(R.id.dashboard_savings, hasComparison ? comparedWon(samePeriodDifference) : "—");
-        views.setTextColor(R.id.dashboard_savings, Color.parseColor(samePeriodDifference >= 0 ? "#26AF68" : "#E05252"));
-        views.setImageViewBitmap(R.id.dashboard_spending_chart, spendingComparisonChart(
-            context,
-            spending == null ? null : spending.optJSONArray("currentCumulativeTrend"),
-            spending == null ? null : spending.optJSONArray("previousCumulativeTrend")
-        ));
-        views.setTextViewText(R.id.dashboard_spending_detail, ready && spending != null ? "이번달 " + wonAmount(spending.optLong("monthSpent")) : "가계부 데이터 필요");
-        views.setTextViewText(R.id.dashboard_week_change, ready && spending != null ? spendingChangeText(spending) : "—");
+        JSONArray runningRecords = running == null ? null : running.optJSONArray("records");
+        for (int index = 0; index < DASHBOARD_RUNNING_RECORDS.length; index++) {
+            bindRunningRecord(views, DASHBOARD_RUNNING_RECORDS[index], runningRecords, index);
+        }
+        bindSpending(views, spending, points, ready);
 
         views.setTextViewText(R.id.dashboard_wine_name, ready && wine != null ? text(wine, "name", "와인 기록 없음") : "와인 데이터 필요");
         views.setTextViewText(R.id.dashboard_wine_note, ready && wine != null ? text(wine, "note", "최근 테이스팅을 기록해 보세요") : "테이스팅 노트 필요");
@@ -247,13 +236,71 @@ final class DayBirdWidgetStore {
         }
     }
 
-    private static void bindWorkout(RemoteViews views, int viewId, JSONArray workouts, int index, String emptyMessage) {
+    private static void bindWorkout(Context context, RemoteViews views, int viewId, JSONArray workouts, int index, String emptyMessage) {
         JSONObject workout = workouts == null ? null : workouts.optJSONObject(index);
         if (workout == null) {
             views.setTextViewText(viewId, index == 0 ? emptyMessage : "—");
+            applyWorkoutCompletionStyle(context, views, viewId, false);
             return;
         }
-        views.setTextViewText(viewId, text(workout, "label", "운동") + "   " + text(workout, "value", "—") + "   " + text(workout, "status", ""));
+        boolean completed = "done".equals(workout.optString("state"));
+        String label = text(workout, "label", "운동") + "   " + text(workout, "value", "—") + "   " + text(workout, "status", "");
+        views.setTextViewText(viewId, (completed ? "✓ " : "") + label);
+        applyWorkoutCompletionStyle(context, views, viewId, completed);
+    }
+
+    private static void applyWorkoutCompletionStyle(Context context, RemoteViews views, int viewId, boolean completed) {
+        float density = context.getResources().getDisplayMetrics().density;
+        views.setInt(viewId, "setBackgroundResource", completed ? R.drawable.widget_completed_row : android.R.color.transparent);
+        views.setViewPadding(viewId, completed ? Math.round(6 * density) : 0, completed ? Math.round(2 * density) : 0, completed ? Math.round(6 * density) : 0, completed ? Math.round(2 * density) : 0);
+        views.setTextColor(viewId, Color.parseColor(completed ? "#203A72" : "#45474F"));
+    }
+
+    private static void bindRunningRecord(RemoteViews views, int viewId, JSONArray records, int index) {
+        JSONObject record = records == null ? null : records.optJSONObject(index);
+        boolean visible = record != null && record.optDouble("distanceKm", 0) > 0;
+        views.setViewVisibility(viewId, visible ? View.VISIBLE : View.GONE);
+        if (!visible) return;
+        double distance = record.optDouble("distanceKm", 0);
+        int cadence = record.optInt("cadenceSpm", 0);
+        String distanceText = String.format(Locale.KOREAN, "%.1fkm", distance);
+        String cadenceText = cadence > 0 ? cadence + "spm" : "케이던스 —";
+        views.setTextViewText(viewId, distanceText + " · " + paceText(record.optInt("paceSecPerKm", 0)) + " · " + cadenceText);
+    }
+
+    private static void bindSpending(RemoteViews views, JSONObject spending, JSONObject points, boolean ready) {
+        JSONObject twoWeek = spending == null ? null : spending.optJSONObject("twoWeek");
+        if (!ready || twoWeek == null) {
+            views.setTextViewText(R.id.dashboard_spending_two_week, "2주 소비 데이터 필요");
+            views.setTextViewText(R.id.dashboard_spending_today, "오늘 소비 데이터 필요");
+            views.setProgressBar(R.id.dashboard_spending_two_week_progress, 1, 0, false);
+            views.setProgressBar(R.id.dashboard_spending_today_progress, 1, 0, false);
+        } else {
+            long twoWeekTarget = Math.max(0, twoWeek.optLong("target", 0));
+            long todayTarget = Math.max(0, twoWeek.optLong("todayTarget", 0));
+            long twoWeekSpent = Math.max(0, twoWeek.optLong("spent", 0));
+            long todaySpent = Math.max(0, twoWeek.optLong("todaySpent", 0));
+            views.setTextViewText(R.id.dashboard_spending_two_week, "2주  " + wonAmount(twoWeekSpent) + " / " + wonAmount(twoWeekTarget));
+            views.setTextViewText(R.id.dashboard_spending_today, "오늘  " + wonAmount(todaySpent) + " / " + wonAmount(todayTarget));
+            setGaugeProgress(views, R.id.dashboard_spending_two_week_progress, twoWeekSpent, twoWeekTarget);
+            setGaugeProgress(views, R.id.dashboard_spending_today_progress, todaySpent, todayTarget);
+        }
+        views.setTextViewText(R.id.dashboard_point_info, pointSummaryText(points));
+    }
+
+    private static void setGaugeProgress(RemoteViews views, int viewId, long value, long max) {
+        int safeMax = (int) Math.max(1, Math.min(Integer.MAX_VALUE, max));
+        int progress = (int) Math.max(0, Math.min(safeMax, value));
+        views.setProgressBar(viewId, safeMax, progress, false);
+    }
+
+    private static String pointSummaryText(JSONObject points) {
+        if (points == null || "missing".equals(points.optString("state"))) return "가계부 포인트를 설정해 주세요";
+        String label = text(points, "label", "가계부 포인트");
+        if (!"ready".equals(points.optString("state"))) return label + " 집계 대기 중";
+        long balance = points.optLong("balance", 0);
+        long earnedTwoWeek = points.optLong("earnedTwoWeek", 0);
+        return label + " " + NumberFormat.getNumberInstance(Locale.KOREAN).format(balance) + "P · 2주 +" + NumberFormat.getNumberInstance(Locale.KOREAN).format(earnedTwoWeek) + "P";
     }
 
     private static String number(JSONObject object, String key) {
