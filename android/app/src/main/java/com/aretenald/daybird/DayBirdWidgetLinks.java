@@ -3,30 +3,34 @@ package com.aretenald.daybird;
 final class DayBirdWidgetLinks {
     static final Link FOOD = new Link(
         "food",
-        "tomatofarm://diet/today",
-        "com.lifestreak.app",
+        false,
+        "tomatodev://diet/today",
+        "com.lifestreak.dev",
         "widgetAction",
         "diet",
-        "https://aretenald2018-sys.github.io/tomatofarm/?entry=diet"
+        "https://aretenald2018-sys.github.io/tomatodev/?entry=diet"
     );
     static final Link HEALTH = new Link(
         "health",
-        "tomatofarm://workout/season",
-        "com.lifestreak.app",
+        false,
+        "tomatodev://workout/season",
+        "com.lifestreak.dev",
         "widgetAction",
         "season",
-        "https://aretenald2018-sys.github.io/tomatofarm/?entry=season"
+        "https://aretenald2018-sys.github.io/tomatodev/?entry=season"
     );
     static final Link RUNNING = new Link(
         "running",
-        "tomatofarm://workout/running",
-        "com.lifestreak.app",
+        false,
+        "tomatodev://workout/running",
+        "com.lifestreak.dev",
         "widgetAction",
         "running",
-        "https://aretenald2018-sys.github.io/tomatofarm/?entry=running"
+        "https://aretenald2018-sys.github.io/tomatodev/?entry=running"
     );
     static final Link SPENDING = new Link(
         "spending",
+        false,
         "tomatobudget://spending/month",
         "com.aretenald.budget",
         "entry",
@@ -35,6 +39,7 @@ final class DayBirdWidgetLinks {
     );
     static final Link WINE = new Link(
         "wine",
+        false,
         "tomatobudget://wine/recent",
         "com.aretenald.budget",
         "entry",
@@ -56,6 +61,7 @@ final class DayBirdWidgetLinks {
 
     static final class Link {
         final String id;
+        final boolean webOnly;
         final String uri;
         final String packageName;
         final String entryExtra;
@@ -64,6 +70,7 @@ final class DayBirdWidgetLinks {
 
         Link(
             String id,
+            boolean webOnly,
             String uri,
             String packageName,
             String entryExtra,
@@ -71,6 +78,7 @@ final class DayBirdWidgetLinks {
             String fallbackUrl
         ) {
             this.id = id;
+            this.webOnly = webOnly;
             this.uri = uri;
             this.packageName = packageName;
             this.entryExtra = entryExtra;

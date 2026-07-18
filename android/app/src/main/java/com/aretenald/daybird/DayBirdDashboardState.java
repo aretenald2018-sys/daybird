@@ -69,11 +69,18 @@ final class DayBirdDashboardState {
     }
 
     static JSONObject snapshot(Context context) {
-        String raw = prefs(context).getString(SNAPSHOT, "");
+        SharedPreferences preferences = prefs(context);
+        String raw = preferences.getString(SNAPSHOT, "");
         if (raw == null || raw.isBlank()) return null;
         try {
-            return new JSONObject(raw);
+            JSONObject cached = new JSONObject(raw);
+            if (DayBirdDashboardContract.hasExpectedSource(cached)) return cached;
+            preferences.edit().remove(SNAPSHOT).remove(LAST_SUCCESS).commit();
+            DayBirdWidgetStore.clearDashboard(context);
+            return null;
         } catch (JSONException ignored) {
+            preferences.edit().remove(SNAPSHOT).remove(LAST_SUCCESS).commit();
+            DayBirdWidgetStore.clearDashboard(context);
             return null;
         }
     }

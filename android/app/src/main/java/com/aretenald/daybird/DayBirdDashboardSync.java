@@ -36,6 +36,11 @@ final class DayBirdDashboardSync {
         void complete(T value, Exception error);
     }
 
+    @FunctionalInterface
+    interface RefreshOperation {
+        void run() throws Exception;
+    }
+
     private static final String PERIODIC_WORK = "daybird-dashboard-periodic-sync";
     private static final ExecutorService EXECUTOR = Executors.newSingleThreadExecutor();
     private static final Object LISTENER_LOCK = new Object();
@@ -105,6 +110,49 @@ final class DayBirdDashboardSync {
             TimeUnit.SECONDS
         );
         return snapshot.exists() && saveDocument(appContext, snapshot);
+    }
+
+    static boolean hasConnectedSession(Context context) {
+        return shouldRequestOverlay(
+            FirebaseAuth.getInstance().getCurrentUser() != null,
+            DayBirdDashboardState.ownerUid(context),
+            DayBirdDashboardState.authUid(context)
+        );
+    }
+
+    static boolean shouldRequestOverlay(boolean signedIn, String ownerUid, String authUid) {
+        return signedIn
+            && ownerUid != null && !ownerUid.isBlank()
+            && authUid != null && !authUid.isBlank();
+    }
+
+    static void refreshPeriodicBlocking(Context context) throws Exception {
+        runPeriodicRefresh(
+            hasConnectedSession(context),
+            () -> requestRefreshBlocking(context),
+            () -> refreshBlocking(context)
+        );
+    }
+
+    static void runPeriodicRefresh(
+        boolean requestOverlay,
+        RefreshOperation overlayRefresh,
+        RefreshOperation snapshotRefresh
+    ) throws Exception {
+        if (!requestOverlay) {
+            snapshotRefresh.run();
+            return;
+        }
+        try {
+            overlayRefresh.run();
+        } catch (Exception overlayError) {
+            try {
+                snapshotRefresh.run();
+            } catch (Exception snapshotError) {
+                overlayError.addSuppressed(snapshotError);
+                throw overlayError;
+            }
+        }
     }
 
     static void refreshAsync(Context context, Callback<Boolean> callback) {

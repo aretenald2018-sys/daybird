@@ -15,7 +15,7 @@ public class DayBirdDashboardWorker extends Worker {
     @Override
     public Result doWork() {
         try {
-            DayBirdDashboardSync.refreshBlocking(getApplicationContext());
+            DayBirdDashboardSync.refreshPeriodicBlocking(getApplicationContext());
             return Result.success();
         } catch (Exception error) {
             DayBirdDashboardState.saveError(getApplicationContext(), error);

@@ -9,7 +9,8 @@ final class DayBirdWidgetLinkPolicy {
 
     private DayBirdWidgetLinkPolicy() {}
 
-    static Destination destination(boolean packageInstalled, boolean launchIntentAvailable) {
+    static Destination destination(boolean webOnly, boolean packageInstalled, boolean launchIntentAvailable) {
+        if (webOnly) return Destination.WEB_FALLBACK;
         if (!packageInstalled) return Destination.WEB_FALLBACK;
         return launchIntentAvailable ? Destination.TARGET_APP : Destination.DAYBIRD;
     }

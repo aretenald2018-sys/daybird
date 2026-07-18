@@ -44,11 +44,12 @@ public class WidgetLinkActivity extends Activity {
         }
 
         PackageManager packageManager = getPackageManager();
-        boolean packageInstalled = isPackageInstalled(packageManager, link.packageName);
+        boolean packageInstalled = !link.webOnly && isPackageInstalled(packageManager, link.packageName);
         Intent launchIntent = packageInstalled
             ? packageManager.getLaunchIntentForPackage(link.packageName)
             : null;
         DayBirdWidgetLinkPolicy.Destination destination = DayBirdWidgetLinkPolicy.destination(
+            link.webOnly,
             packageInstalled,
             launchIntent != null && launchIntent.getComponent() != null
         );

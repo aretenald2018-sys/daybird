@@ -9,7 +9,7 @@ public class DayBirdWidgetLinkPolicyTest {
     public void installedAppWithLauncherAlwaysReceivesTheLink() {
         assertEquals(
             DayBirdWidgetLinkPolicy.Destination.TARGET_APP,
-            DayBirdWidgetLinkPolicy.destination(true, true)
+            DayBirdWidgetLinkPolicy.destination(false, true, true)
         );
     }
 
@@ -17,7 +17,7 @@ public class DayBirdWidgetLinkPolicyTest {
     public void installedAppWithoutUsableLauncherNeverFallsBackToWeb() {
         assertEquals(
             DayBirdWidgetLinkPolicy.Destination.DAYBIRD,
-            DayBirdWidgetLinkPolicy.destination(true, false)
+            DayBirdWidgetLinkPolicy.destination(false, true, false)
         );
     }
 
@@ -25,11 +25,19 @@ public class DayBirdWidgetLinkPolicyTest {
     public void webFallbackIsReservedForAnAbsentPackage() {
         assertEquals(
             DayBirdWidgetLinkPolicy.Destination.WEB_FALLBACK,
-            DayBirdWidgetLinkPolicy.destination(false, false)
+            DayBirdWidgetLinkPolicy.destination(false, false, false)
         );
         assertEquals(
             DayBirdWidgetLinkPolicy.Destination.WEB_FALLBACK,
-            DayBirdWidgetLinkPolicy.destination(false, true)
+            DayBirdWidgetLinkPolicy.destination(false, false, true)
+        );
+    }
+
+    @Test
+    public void explicitlyWebOnlyLinksAlwaysUseTheirWebFallback() {
+        assertEquals(
+            DayBirdWidgetLinkPolicy.Destination.WEB_FALLBACK,
+            DayBirdWidgetLinkPolicy.destination(true, true, true)
         );
     }
 }

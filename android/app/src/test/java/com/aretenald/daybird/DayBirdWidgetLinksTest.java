@@ -8,21 +8,29 @@ import org.junit.Test;
 
 public class DayBirdWidgetLinksTest {
     @Test
-    public void tomatoCardsUsePublicTomatoRoutes() {
-        assertEquals("tomatofarm://diet/today", DayBirdWidgetLinks.FOOD.uri);
-        assertEquals("tomatofarm://workout/season", DayBirdWidgetLinks.HEALTH.uri);
-        assertEquals("tomatofarm://workout/running", DayBirdWidgetLinks.RUNNING.uri);
-        assertEquals("com.lifestreak.app", DayBirdWidgetLinks.FOOD.packageName);
-        assertEquals("com.lifestreak.app", DayBirdWidgetLinks.HEALTH.packageName);
-        assertEquals("com.lifestreak.app", DayBirdWidgetLinks.RUNNING.packageName);
+    public void tomatoCardsTargetOnlyTheIsolatedTomatoDevPackage() {
+        assertEquals(false, DayBirdWidgetLinks.FOOD.webOnly);
+        assertEquals(false, DayBirdWidgetLinks.HEALTH.webOnly);
+        assertEquals(false, DayBirdWidgetLinks.RUNNING.webOnly);
+        assertEquals("tomatodev://diet/today", DayBirdWidgetLinks.FOOD.uri);
+        assertEquals("tomatodev://workout/season", DayBirdWidgetLinks.HEALTH.uri);
+        assertEquals("tomatodev://workout/running", DayBirdWidgetLinks.RUNNING.uri);
+        assertEquals("com.lifestreak.dev", DayBirdWidgetLinks.FOOD.packageName);
+        assertEquals("com.lifestreak.dev", DayBirdWidgetLinks.HEALTH.packageName);
+        assertEquals("com.lifestreak.dev", DayBirdWidgetLinks.RUNNING.packageName);
         assertEquals("widgetAction", DayBirdWidgetLinks.FOOD.entryExtra);
         assertEquals("diet", DayBirdWidgetLinks.FOOD.entry);
         assertEquals("season", DayBirdWidgetLinks.HEALTH.entry);
         assertEquals("running", DayBirdWidgetLinks.RUNNING.entry);
+        assertEquals("https://aretenald2018-sys.github.io/tomatodev/?entry=diet", DayBirdWidgetLinks.FOOD.fallbackUrl);
+        assertEquals("https://aretenald2018-sys.github.io/tomatodev/?entry=season", DayBirdWidgetLinks.HEALTH.fallbackUrl);
+        assertEquals("https://aretenald2018-sys.github.io/tomatodev/?entry=running", DayBirdWidgetLinks.RUNNING.fallbackUrl);
     }
 
     @Test
     public void budgetCardsUsePublicBudgetRoutes() {
+        assertEquals(false, DayBirdWidgetLinks.SPENDING.webOnly);
+        assertEquals(false, DayBirdWidgetLinks.WINE.webOnly);
         assertEquals("tomatobudget://spending/month", DayBirdWidgetLinks.SPENDING.uri);
         assertEquals("tomatobudget://wine/recent", DayBirdWidgetLinks.WINE.uri);
         assertEquals("com.aretenald.budget", DayBirdWidgetLinks.SPENDING.packageName);

@@ -1,34 +1,73 @@
 {
   "schemaVersion": 1,
+  "sourceEnvironment": "tomatodev",
   "revision": 7,
+  "ownerId": "김_태우",
   "budgetUid": "budget-owner-1",
   "generatedAtEpochMs": 1784170800000,
-  "timezone": "Asia/Seoul",
-  "weights": { "food": 25, "health": 25, "running": 20, "spending": 20, "wine": 10 },
-  "score": 88,
-  "domains": {
-    "food": { "score": 84, "freshness": "fresh" },
-    "health": { "score": 90, "freshness": "fresh" },
-    "running": { "score": 92, "freshness": "fresh" },
-    "spending": { "score": 86, "freshness": "fresh" },
-    "wine": { "score": 82, "freshness": "delayed" }
+  "tomatoDevSnapshotMetadata": {
+    "schemaVersion": 1,
+    "sourceEnvironment": "tomatodev",
+    "state": "ready",
+    "generatedAt": 1784170800000,
+    "reason": "fixture"
   },
+  "timezone": "Asia/Seoul",
   "nutrition": { "actualKcal": 1840, "targetKcal": 2300, "progress": 80, "proteinG": 118, "carbsG": 210, "fatG": 48 },
-  "workouts": [{ "label": "하체", "value": "110kg × 8", "status": "3/3", "state": "done" }],
   "running": {
     "paceChangePct": 2.8,
     "cadenceChangePct": 1.6,
     "paceSecPerKm": 328,
     "cadenceSpm": 176,
     "trend": [12, 15, 18, 17, 21],
+    "goal": {
+      "mode": "targetPace",
+      "targetPaceSecPerKm": 330,
+      "baselinePaceSecPerKm": 345,
+      "adaptiveRatePct": null,
+      "actualPaceSecPerKm": 338,
+      "avgHeartRateBpm": 151,
+      "heartRateCaution": false,
+      "status": "on-track"
+    },
+    "recent": [
+      { "dateKey": "2026-07-16", "distanceKm": 8.2, "paceSecPerKm": 328, "avgHeartRateBpm": 151, "cadenceSpm": 176 },
+      { "dateKey": "2026-07-14", "distanceKm": 6.0, "paceSecPerKm": 332, "cadenceSpm": 174 },
+      { "dateKey": "2026-07-12", "distanceKm": 10.0, "paceSecPerKm": 341, "cadenceSpm": 172 },
+      { "dateKey": "2026-07-09", "distanceKm": 5.2, "paceSecPerKm": 326, "cadenceSpm": 178 },
+      { "dateKey": "2026-07-07", "distanceKm": 7.4, "paceSecPerKm": 338, "cadenceSpm": 171 }
+    ],
     "records": [
-      { "dateKey": "2026-07-16", "distanceKm": 8.2, "paceSecPerKm": 328, "cadenceSpm": 176 },
+      { "dateKey": "2026-07-16", "distanceKm": 8.2, "paceSecPerKm": 328, "avgHeartRateBpm": 151, "cadenceSpm": 176 },
       { "dateKey": "2026-07-14", "distanceKm": 6.0, "paceSecPerKm": 332, "cadenceSpm": 174 },
       { "dateKey": "2026-07-12", "distanceKm": 10.0, "paceSecPerKm": 341, "cadenceSpm": 172 },
       { "dateKey": "2026-07-09", "distanceKm": 5.2, "paceSecPerKm": 326, "cadenceSpm": 178 },
       { "dateKey": "2026-07-07", "distanceKm": 7.4, "paceSecPerKm": 338, "cadenceSpm": 171 }
     ]
   },
+  "seasonGoals": [
+    {
+      "weekStart": "2026-07-13",
+      "weekEnd": "2026-07-19",
+      "seasonId": "summer-2026",
+      "state": "achieved",
+      "items": [
+        {
+          "id": "strength:squat:volume",
+          "type": "strength",
+          "exerciseId": "squat",
+          "label": "스쿼트",
+          "track": "volume",
+          "program": "linear",
+          "state": "achieved",
+          "detail": "110kg · 3세트 × 8회",
+          "startDate": "2026-07-01",
+          "endDate": "2026-08-31"
+        }
+      ],
+      "runningPace": null
+    }
+  ],
   "spending": {
     "savings": 12400,
     "monthSpent": 312000,
@@ -36,6 +75,23 @@
     "trend": [55, 48, 43, 39, 31, 27, 20],
     "twoWeek": { "startDate": "2026-07-06", "endDate": "2026-07-19", "spent": 132000, "target": 420000, "todaySpent": 18000, "todayTarget": 30000 }
   },
-  "points": { "state": "ready", "label": "와인구매 포인트", "balance": 12300, "earnedTwoWeek": 4200 },
+  "points": {
+    "state": "ready",
+    "key": "winePurchase",
+    "label": "와인구매 포인트",
+    "balance": 12300,
+    "monthPoints": 12300,
+    "earnedMonthPoints": 14300,
+    "spentMonthPoints": 2000,
+    "todayPoints": 300,
+    "historyOnly": false,
+    "source": "budget-canonical",
+    "schemaVersion": 2
+  },
+  "budgetPointsMetadata": {
+    "source": "budget-canonical",
+    "schemaVersion": 2,
+    "updatedAtEpochMs": 1784170800000
+  },
   "wine": { "name": "Chianti Classico Riserva 2021", "note": "체리, 말린 허브, 가죽", "rating": 4.1 }
 }
