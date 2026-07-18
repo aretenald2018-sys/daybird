@@ -25,6 +25,7 @@ import java.util.Comparator;
 import java.util.Date;
 import java.util.List;
 import java.util.Locale;
+import java.util.TimeZone;
 import org.json.JSONArray;
 import org.json.JSONException;
 import org.json.JSONObject;
@@ -161,8 +162,10 @@ final class DayBirdWidgetStore {
         boolean ready = dashboard != null;
         JSONObject domains = ready ? dashboard.optJSONObject("domains") : null;
         JSONObject nutrition = ready ? dashboard.optJSONObject("nutrition") : null;
-        JSONObject healthGoal = ready ? dashboard.optJSONObject("healthGoal") : null;
-        JSONArray workouts = healthGoal == null ? (ready ? dashboard.optJSONArray("workouts") : null) : healthGoal.optJSONArray("items");
+        JSONObject healthGoal = ready
+            ? DayBirdDashboardContract.currentHealthGoal(dashboard, currentWeekStart(dashboard))
+            : null;
+        JSONArray workouts = healthGoal == null ? null : healthGoal.optJSONArray("items");
         JSONObject running = ready ? dashboard.optJSONObject("running") : null;
         JSONObject spending = ready ? dashboard.optJSONObject("spending") : null;
         JSONObject points = ready ? dashboard.optJSONObject("points") : null;
@@ -496,6 +499,17 @@ final class DayBirdWidgetStore {
     private static int currentMinute() {
         Calendar calendar = Calendar.getInstance();
         return calendar.get(Calendar.HOUR_OF_DAY) * 60 + calendar.get(Calendar.MINUTE);
+    }
+
+    private static String currentWeekStart(JSONObject dashboard) {
+        String timezoneId = dashboard == null ? "" : dashboard.optString("timezone", "").trim();
+        TimeZone timezone = TimeZone.getTimeZone(timezoneId.isEmpty() ? "Asia/Seoul" : timezoneId);
+        Calendar calendar = Calendar.getInstance(timezone);
+        int daysSinceMonday = (calendar.get(Calendar.DAY_OF_WEEK) + 5) % 7;
+        calendar.add(Calendar.DAY_OF_MONTH, -daysSinceMonday);
+        SimpleDateFormat formatter = new SimpleDateFormat("yyyy-MM-dd", Locale.US);
+        formatter.setTimeZone(timezone);
+        return formatter.format(calendar.getTime());
     }
 
     private static String formatMinute(int minute) {

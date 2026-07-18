@@ -5,13 +5,12 @@ import android.app.PendingIntent;
 import android.content.ActivityNotFoundException;
 import android.content.Context;
 import android.content.Intent;
+import android.content.pm.PackageManager;
 import android.net.Uri;
 import android.os.Bundle;
 
 public class WidgetLinkActivity extends Activity {
-    private static final String EXTRA_URI = "widgetLinkUri";
-    private static final String EXTRA_PACKAGE = "widgetLinkPackage";
-    private static final String EXTRA_FALLBACK = "widgetLinkFallback";
+    private static final String EXTRA_LINK_ID = "widgetLinkId";
 
     static PendingIntent pendingIntent(
         Context context,
@@ -19,9 +18,7 @@ public class WidgetLinkActivity extends Activity {
         DayBirdWidgetLinks.Link link
     ) {
         Intent intent = new Intent(context, WidgetLinkActivity.class)
-            .putExtra(EXTRA_URI, link.uri)
-            .putExtra(EXTRA_PACKAGE, link.packageName)
-            .putExtra(EXTRA_FALLBACK, link.fallbackUrl)
+            .putExtra(EXTRA_LINK_ID, link.id)
             .addFlags(Intent.FLAG_ACTIVITY_NEW_TASK | Intent.FLAG_ACTIVITY_CLEAR_TOP);
         return PendingIntent.getActivity(
             context,
@@ -39,21 +36,53 @@ public class WidgetLinkActivity extends Activity {
     }
 
     private void openTarget(Intent source) {
-        String uri = source == null ? "" : source.getStringExtra(EXTRA_URI);
-        String packageName = source == null ? "" : source.getStringExtra(EXTRA_PACKAGE);
-        String fallbackUrl = source == null ? "" : source.getStringExtra(EXTRA_FALLBACK);
-        if (uri == null || uri.isEmpty() || packageName == null || packageName.isEmpty()) {
+        String linkId = source == null ? "" : source.getStringExtra(EXTRA_LINK_ID);
+        DayBirdWidgetLinks.Link link = DayBirdWidgetLinks.find(linkId);
+        if (link == null) {
             openDayBird();
             return;
         }
 
-        Intent target = new Intent(Intent.ACTION_VIEW, Uri.parse(uri))
-            .setPackage(packageName)
-            .addFlags(Intent.FLAG_ACTIVITY_CLEAR_TOP);
+        PackageManager packageManager = getPackageManager();
+        boolean packageInstalled = isPackageInstalled(packageManager, link.packageName);
+        Intent launchIntent = packageInstalled
+            ? packageManager.getLaunchIntentForPackage(link.packageName)
+            : null;
+        DayBirdWidgetLinkPolicy.Destination destination = DayBirdWidgetLinkPolicy.destination(
+            packageInstalled,
+            launchIntent != null && launchIntent.getComponent() != null
+        );
+        if (destination == DayBirdWidgetLinkPolicy.Destination.WEB_FALLBACK) {
+            openFallback(link.fallbackUrl);
+            return;
+        }
+        if (destination == DayBirdWidgetLinkPolicy.Destination.DAYBIRD) {
+            openDayBird();
+            return;
+        }
+
+        // Launch the app's normal document and pass only the allowlisted entry.
+        // Keeping the legacy custom URI here makes older Budget shells reload a
+        // query-string URL, which is the broken-CSS path this bridge replaces.
+        Intent target = new Intent(launchIntent)
+            .setComponent(launchIntent.getComponent())
+            .putExtra(link.entryExtra, link.entry)
+            .putExtra("widgetSource", "daybird")
+            .addFlags(Intent.FLAG_ACTIVITY_NEW_TASK | Intent.FLAG_ACTIVITY_CLEAR_TOP | Intent.FLAG_ACTIVITY_SINGLE_TOP);
         try {
             startActivity(target);
-        } catch (ActivityNotFoundException error) {
-            openFallback(fallbackUrl);
+        } catch (ActivityNotFoundException | SecurityException error) {
+            // The package is installed, so never leak this navigation into a browser.
+            openDayBird();
+        }
+    }
+
+    private boolean isPackageInstalled(PackageManager packageManager, String packageName) {
+        try {
+            packageManager.getApplicationInfo(packageName, 0);
+            return true;
+        } catch (PackageManager.NameNotFoundException ignored) {
+            return false;
         }
     }
 

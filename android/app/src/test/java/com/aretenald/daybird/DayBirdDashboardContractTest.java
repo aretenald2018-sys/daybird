@@ -1,8 +1,11 @@
 package com.aretenald.daybird;
 
 import static org.junit.Assert.assertFalse;
+import static org.junit.Assert.assertNull;
+import static org.junit.Assert.assertSame;
 import static org.junit.Assert.assertTrue;
 
+import org.json.JSONArray;
 import org.json.JSONObject;
 import org.junit.Test;
 
@@ -46,5 +49,36 @@ public class DayBirdDashboardContractTest {
         JSONObject score = fixture();
         score.getJSONObject("domains").getJSONObject("wine").put("score", 101);
         assertFalse(DayBirdDashboardContract.accepts(score, 0));
+    }
+
+    @Test
+    public void rendersOnlyTheCurrentSeasonWeekHealthGoal() throws Exception {
+        JSONObject snapshot = fixture();
+        JSONObject current = new JSONObject()
+            .put("state", "ready")
+            .put("seasonId", "summer-2026")
+            .put("weekStart", "2026-07-13")
+            .put("items", new JSONArray().put(new JSONObject().put("label", "squat")));
+        snapshot.put("healthGoal", current);
+        assertSame(current, DayBirdDashboardContract.currentHealthGoal(snapshot, "2026-07-13"));
+
+        current.put("weekStart", "2026-07-06");
+        assertNull(DayBirdDashboardContract.currentHealthGoal(snapshot, "2026-07-13"));
+    }
+
+    @Test
+    public void neverUsesLegacyOrUntrustedHealthGoals() throws Exception {
+        JSONObject snapshot = fixture().put(
+            "workouts",
+            new JSONArray().put(new JSONObject().put("label", "stale legacy goal"))
+        );
+        assertNull(DayBirdDashboardContract.currentHealthGoal(snapshot, "2026-07-13"));
+
+        snapshot.put("healthGoal", new JSONObject()
+            .put("state", "missing")
+            .put("seasonId", "summer-2026")
+            .put("weekStart", "2026-07-13")
+            .put("items", new JSONArray()));
+        assertNull(DayBirdDashboardContract.currentHealthGoal(snapshot, "2026-07-13"));
     }
 }

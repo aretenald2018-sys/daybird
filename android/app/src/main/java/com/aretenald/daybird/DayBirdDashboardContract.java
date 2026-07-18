@@ -1,5 +1,6 @@
 package com.aretenald.daybird;
 
+import org.json.JSONArray;
 import org.json.JSONObject;
 
 final class DayBirdDashboardContract {
@@ -45,6 +46,17 @@ final class DayBirdDashboardContract {
             total += weight;
         }
         return total == 100;
+    }
+
+    static JSONObject currentHealthGoal(JSONObject snapshot, String expectedWeekStart) {
+        if (snapshot == null || expectedWeekStart == null || expectedWeekStart.isBlank()) return null;
+        JSONObject goal = snapshot.optJSONObject("healthGoal");
+        if (goal == null || !expectedWeekStart.equals(goal.optString("weekStart", ""))) return null;
+        if (goal.optString("seasonId", "").isBlank()) return null;
+        String state = goal.optString("state", "");
+        if (!"ready".equals(state) && !"empty".equals(state)) return null;
+        JSONArray items = goal.optJSONArray("items");
+        return items == null ? null : goal;
     }
 
     private static boolean isInteger(Object value) {
