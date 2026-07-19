@@ -13,17 +13,17 @@ public class DayBirdWidgetLinksTest {
         assertEquals(false, DayBirdWidgetLinks.HEALTH.webOnly);
         assertEquals(false, DayBirdWidgetLinks.RUNNING.webOnly);
         assertEquals("tomatodev://diet/today", DayBirdWidgetLinks.FOOD.uri);
-        assertEquals("tomatodev://workout/season", DayBirdWidgetLinks.HEALTH.uri);
+        assertEquals("tomatodev://workout/season-overview", DayBirdWidgetLinks.HEALTH.uri);
         assertEquals("tomatodev://workout/running", DayBirdWidgetLinks.RUNNING.uri);
         assertEquals("com.lifestreak.dev", DayBirdWidgetLinks.FOOD.packageName);
         assertEquals("com.lifestreak.dev", DayBirdWidgetLinks.HEALTH.packageName);
         assertEquals("com.lifestreak.dev", DayBirdWidgetLinks.RUNNING.packageName);
         assertEquals("widgetAction", DayBirdWidgetLinks.FOOD.entryExtra);
         assertEquals("diet", DayBirdWidgetLinks.FOOD.entry);
-        assertEquals("season", DayBirdWidgetLinks.HEALTH.entry);
+        assertEquals("season-overview", DayBirdWidgetLinks.HEALTH.entry);
         assertEquals("running", DayBirdWidgetLinks.RUNNING.entry);
         assertEquals("https://aretenald2018-sys.github.io/tomatodev/?entry=diet", DayBirdWidgetLinks.FOOD.fallbackUrl);
-        assertEquals("https://aretenald2018-sys.github.io/tomatodev/?entry=season", DayBirdWidgetLinks.HEALTH.fallbackUrl);
+        assertEquals("https://aretenald2018-sys.github.io/tomatodev/?entry=season-overview", DayBirdWidgetLinks.HEALTH.fallbackUrl);
         assertEquals("https://aretenald2018-sys.github.io/tomatodev/?entry=running", DayBirdWidgetLinks.RUNNING.fallbackUrl);
     }
 

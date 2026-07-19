@@ -13,11 +13,11 @@ final class DayBirdWidgetLinks {
     static final Link HEALTH = new Link(
         "health",
         false,
-        "tomatodev://workout/season",
+        "tomatodev://workout/season-overview",
         "com.lifestreak.dev",
         "widgetAction",
-        "season",
-        "https://aretenald2018-sys.github.io/tomatodev/?entry=season"
+        "season-overview",
+        "https://aretenald2018-sys.github.io/tomatodev/?entry=season-overview"
     );
     static final Link RUNNING = new Link(
         "running",

@@ -10,6 +10,8 @@ export type DashboardWeights = {
 
 export type DashboardStatus = {
   connected: boolean;
+  paired?: boolean;
+  snapshotReady?: boolean;
   ownerUid: string;
   authUid: string;
   revision: number;
@@ -40,6 +42,8 @@ const Dashboard = registerPlugin<DayBirdDashboardPlugin>('DayBirdDashboard');
 function disconnectedStatus(): DashboardStatus {
   return {
     connected: false,
+    paired: false,
+    snapshotReady: false,
     ownerUid: '',
     authUid: '',
     revision: 0,

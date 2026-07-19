@@ -1488,6 +1488,7 @@ function SettingsView({ snapshot, installPrompt, onInstalled, onRefresh, notify 
   const dashboardLastSync = dashboard?.lastSuccessEpochMs
     ? new Intl.DateTimeFormat('ko-KR', { month: 'numeric', day: 'numeric', hour: '2-digit', minute: '2-digit' }).format(new Date(dashboard.lastSuccessEpochMs))
     : '아직 동기화 전';
+  const dashboardPaired = Boolean(dashboard?.paired ?? (dashboard?.ownerUid && dashboard?.authUid));
 
   return (
     <>
@@ -1534,10 +1535,10 @@ function SettingsView({ snapshot, installPrompt, onInstalled, onRefresh, notify 
         <div className="dashboard-settings-card">
           <div className="dashboard-connection-head">
             <span className={dashboard?.connected ? 'is-connected' : ''}>DB</span>
-            <div><strong>{dashboard?.connected ? '가계부와 연결됨' : '가계부에서 연결 필요'}</strong><small>{dashboard?.connected ? `리비전 ${dashboard.revision || '—'} · ${dashboardLastSync}` : '가계부 설정의 DayBird 연결 버튼을 눌러 주세요.'}</small></div>
+            <div><strong>{dashboard?.connected ? '가계부와 연결됨' : dashboardPaired ? '연결됨 · 데이터 동기화 중' : '가계부에서 연결 필요'}</strong><small>{dashboard?.connected ? `리비전 ${dashboard.revision || '—'} · ${dashboardLastSync}` : dashboardPaired ? '최신 TomatoDev 데이터를 자동으로 다시 확인하고 있어요.' : '가계부 설정의 DayBird 연결 버튼을 눌러 주세요.'}</small></div>
             <i className={dashboard?.connected ? 'is-connected' : ''} />
           </div>
-          {dashboard?.connected && <>
+          {dashboardPaired && <>
             <div className="dashboard-weight-heading"><span>총점 가중치</span><b className={dashboardWeightTotal === 100 ? 'is-valid' : ''}>{dashboardWeightTotal}/100</b></div>
             <div className="dashboard-weight-grid">
               {([

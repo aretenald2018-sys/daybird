@@ -2,6 +2,7 @@ package com.aretenald.daybird;
 
 import android.content.Context;
 import android.content.SharedPreferences;
+import android.provider.Settings;
 
 import com.getcapacitor.JSObject;
 
@@ -29,7 +30,10 @@ final class DayBirdDashboardState {
         SharedPreferences preferences = prefs(context);
         String existing = preferences.getString(DEVICE_ID, "");
         if (existing != null && !existing.isBlank()) return existing;
-        String created = "android:" + UUID.randomUUID();
+        String androidId = Settings.Secure.getString(context.getContentResolver(), Settings.Secure.ANDROID_ID);
+        String created = androidId == null || androidId.isBlank() || "9774d56d682e549c".equals(androidId)
+            ? "android:" + UUID.randomUUID()
+            : "android-id:" + androidId;
         preferences.edit().putString(DEVICE_ID, created).commit();
         return created;
     }
@@ -109,7 +113,11 @@ final class DayBirdDashboardState {
     static JSObject status(Context context) {
         JSONObject snapshot = snapshot(context);
         JSObject result = new JSObject();
-        result.put("connected", !ownerUid(context).isBlank() && !authUid(context).isBlank());
+        boolean paired = !ownerUid(context).isBlank() && !authUid(context).isBlank();
+        boolean snapshotReady = snapshot != null;
+        result.put("paired", paired);
+        result.put("snapshotReady", snapshotReady);
+        result.put("connected", paired && snapshotReady);
         result.put("ownerUid", ownerUid(context));
         result.put("authUid", authUid(context));
         result.put("revision", snapshot == null ? 0 : snapshot.optInt("revision", 0));

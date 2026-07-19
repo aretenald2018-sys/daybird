@@ -14,6 +14,15 @@ public class DayBirdDashboardPlugin extends Plugin {
     public void load() {
         DayBirdDashboardSync.schedule(getContext());
         DayBirdDashboardSync.startListener(getContext());
+        if (DayBirdDashboardSync.hasConnectedSession(getContext())) {
+            DayBirdDashboardSync.runAsync(() -> {
+                try {
+                    DayBirdDashboardSync.requestRefreshBlocking(getContext());
+                } catch (Exception error) {
+                    DayBirdDashboardState.saveError(getContext(), error);
+                }
+            });
+        }
     }
 
     @PluginMethod
