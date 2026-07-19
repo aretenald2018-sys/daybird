@@ -13,7 +13,7 @@ await fs.mkdir(outDir, { recursive: true });
 await fs.writeFile(output, bytes);
 await fs.writeFile(path.join(outDir, 'daybird-apk.json'), JSON.stringify({
   versionName: process.env.DAYBIRD_VERSION_NAME || packageJson.version,
-  versionCode: Number(process.env.DAYBIRD_VERSION_CODE || 1),
+  versionCode: Number(process.env.DAYBIRD_VERSION_CODE || 2),
   gitSha: process.env.GITHUB_SHA || 'local',
   builtAt: new Date().toISOString(),
   size: bytes.length,
