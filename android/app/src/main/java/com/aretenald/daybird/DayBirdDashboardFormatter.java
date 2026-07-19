@@ -104,7 +104,7 @@ final class DayBirdDashboardFormatter {
     }
 
     static String runningTitle(JSONObject goal, boolean compact) {
-        String base = compact ? "러닝 5회" : "러닝 최근 5회";
+        String base = compact ? "러닝 · 최근 5회" : "러닝 · 최근 5회 기록";
         if (goal == null) return base;
         int targetPace = goal.optInt("targetPaceSecPerKm", 0);
         if (targetPace > 0) return base + " · 목표 " + paceText(targetPace);

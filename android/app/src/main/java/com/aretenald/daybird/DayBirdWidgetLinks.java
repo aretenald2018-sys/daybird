@@ -35,7 +35,7 @@ final class DayBirdWidgetLinks {
         "com.aretenald.budget",
         "entry",
         "spending",
-        "https://aretenald2018-sys.github.io/budget/?entry=spending"
+        "https://aretenald2018-sys.github.io/budget/?entry=spending&v=20260719-daybird-report"
     );
     static final Link WINE = new Link(
         "wine",
@@ -44,7 +44,7 @@ final class DayBirdWidgetLinks {
         "com.aretenald.budget",
         "entry",
         "wine",
-        "https://aretenald2018-sys.github.io/budget/?entry=wine"
+        "https://aretenald2018-sys.github.io/budget/?entry=wine&v=20260719-daybird-report"
     );
 
     private static final Link[] ALL = { FOOD, HEALTH, RUNNING, SPENDING, WINE };
