@@ -7,7 +7,7 @@
     android:orientation="vertical"
     android:padding="8dp">
 
-    <TextView android:id="@+id/dashboard_compact_title" android:layout_width="match_parent" android:layout_height="wrap_content" android:includeFontPadding="false" android:text="종합 대시보드" android:textColor="#17181C" android:textSize="18sp" android:textStyle="bold" />
+    <TextView android:id="@+id/dashboard_compact_title" android:layout_width="match_parent" android:layout_height="wrap_content" android:includeFontPadding="false" android:text="오늘 상태" android:textColor="#17181C" android:textSize="18sp" android:textStyle="bold" />
     <TextView android:id="@+id/dashboard_date" android:layout_width="match_parent" android:layout_height="wrap_content" android:includeFontPadding="false" android:layout_marginTop="1dp" android:text="오늘 상태 요약" android:textColor="#7B7E87" android:textSize="9sp" />
 
     <LinearLayout android:id="@+id/dashboard_compact_top_row" android:layout_width="match_parent" android:layout_height="116dp" android:layout_marginTop="6dp" android:orientation="horizontal">
@@ -36,9 +36,9 @@
         </LinearLayout>
         <LinearLayout android:id="@+id/dashboard_spending_card" android:layout_width="0dp" android:layout_height="match_parent" android:layout_marginStart="6dp" android:layout_weight="1" android:background="@drawable/widget_dashboard_card" android:orientation="vertical" android:padding="7dp">
             <TextView android:layout_width="match_parent" android:layout_height="wrap_content" android:includeFontPadding="false" android:text="소비 추이" android:textColor="#222329" android:textSize="10sp" android:textStyle="bold" />
-            <TextView android:id="@+id/dashboard_spending_two_week" android:layout_width="match_parent" android:layout_height="wrap_content" android:layout_marginTop="7dp" android:ellipsize="end" android:maxLines="1" android:text="2주 소비 데이터 필요" android:textColor="#41434B" android:textSize="9sp" android:textStyle="bold" />
+            <TextView android:id="@+id/dashboard_spending_two_week" android:layout_width="match_parent" android:layout_height="wrap_content" android:layout_marginTop="7dp" android:breakStrategy="balanced" android:maxLines="2" android:text="2주 소비 데이터 필요" android:textColor="#41434B" android:textSize="8sp" android:textStyle="bold" />
             <ProgressBar android:id="@+id/dashboard_spending_two_week_progress" style="?android:attr/progressBarStyleHorizontal" android:layout_width="match_parent" android:layout_height="6dp" android:layout_marginTop="3dp" android:indeterminate="false" android:max="1" android:progress="0" android:progressDrawable="@drawable/widget_dashboard_progress" />
-            <TextView android:id="@+id/dashboard_spending_today" android:layout_width="match_parent" android:layout_height="wrap_content" android:layout_marginTop="7dp" android:ellipsize="end" android:maxLines="1" android:text="오늘 소비 데이터 필요" android:textColor="#41434B" android:textSize="9sp" android:textStyle="bold" />
+            <TextView android:id="@+id/dashboard_spending_today" android:layout_width="match_parent" android:layout_height="wrap_content" android:layout_marginTop="7dp" android:breakStrategy="balanced" android:maxLines="2" android:text="오늘 소비 데이터 필요" android:textColor="#41434B" android:textSize="8sp" android:textStyle="bold" />
             <ProgressBar android:id="@+id/dashboard_spending_today_progress" style="?android:attr/progressBarStyleHorizontal" android:layout_width="match_parent" android:layout_height="6dp" android:layout_marginTop="3dp" android:indeterminate="false" android:max="1" android:progress="0" android:progressDrawable="@drawable/widget_dashboard_progress" />
             <TextView android:id="@+id/dashboard_point_info" android:layout_width="match_parent" android:layout_height="0dp" android:layout_weight="1" android:gravity="bottom" android:ellipsize="end" android:maxLines="2" android:text="가계부 포인트를 설정해 주세요" android:textColor="#7650B9" android:textSize="8sp" android:textStyle="bold" />
         </LinearLayout>
